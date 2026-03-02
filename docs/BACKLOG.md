@@ -59,6 +59,15 @@ in modo da non dover aprire manualmente il merge editor e mantenere il flusso di
 - [ ] Se l'utente ha selezionato la modalità manuale nel wizard, l'editor nativo rimane il default e il merge editor custom è invocabile da Command Palette
 - [ ] L'intercettazione funziona su tutti i file contenenti conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`)
 
+**Tasks**
+- [ ] **TASK-001.1** — Scaffolding extension: creare `package.json` con `activationEvents`, `contributes.commands` e `contributes.configuration`; creare `tsconfig.json` e la struttura di cartelle `src/core/git/`, `src/ui/`, `src/config/`
+- [ ] **TASK-001.2** — Implementare `src/core/git/ConflictDetector.ts`: funzione `hasConflictMarkers(document: TextDocument): boolean` che verifica la presenza di `<<<<<<<`, `=======`, `>>>>>>>`
+- [ ] **TASK-001.3** — Implementare `src/config/ConfigManager.ts`: legge l'impostazione `gitEnhanced.activationMode` (`"auto"` | `"manual"`) da `vscode.workspace.getConfiguration`
+- [ ] **TASK-001.4** — Implementare `src/extension.ts`: registrare il listener `vscode.workspace.onDidOpenTextDocument`; in modalità `auto`, se `hasConflictMarkers` è true, eseguire il comando di apertura editor custom entro 500ms
+- [ ] **TASK-001.5** — Implementare `src/ui/MergeEditorProvider.ts`: stub `CustomEditorProvider` registrato come `git-enhanced.mergeEditor`; apre un `WebviewPanel` placeholder con il titolo "Git Enhanced — Merge Editor"
+- [ ] **TASK-001.6** — Registrare il comando `git-enhanced.openMergeEditor` nella Command Palette (modalità manuale): invoca `MergeEditorProvider` sul file attivo
+- [ ] **TASK-001.7** — Scrivere test unitari `src/core/git/ConflictDetector.test.ts` con Vitest: file con 0, 1 e N conflitti, file senza markers, file binario
+
 ---
 
 #### US-002: Parsing dei conflict markers in HEAD, BASE e MERGING
