@@ -80,9 +80,13 @@ voglio che il file con conflict markers venga parsato correttamente nelle 3 comp
 in modo che le colonne del merge editor mostrino i contenuti corretti e senza artefatti.
 
 **Acceptance Criteria**
-- [ ] Per ogni conflitto nel file, HEAD, BASE e MERGING vengono estratti correttamente dai markers `<<<<<<<`, `=======`, `>>>>>>>`
-- [ ] Il parsing gestisce correttamente file con più conflitti simultanei (N ≥ 1)
-- [ ] Il file originale con conflict markers rimane intatto fino al completamento esplicito del merge
+- [x] Per ogni conflitto nel file, HEAD, BASE e MERGING vengono estratti correttamente dai markers `<<<<<<<`, `=======`, `>>>>>>>`
+- [x] Il parsing gestisce correttamente file con più conflitti simultanei (N ≥ 1)
+- [x] Il file originale con conflict markers rimane intatto fino al completamento esplicito del merge
+
+**Tasks**
+- [x] **TASK-002.1** — Creare `src/core/git/ConflictParser.ts`: state machine `OUTSIDE → IN_HEAD → IN_BASE → IN_MERGING`, supporto formato standard (2-way) e diff3 (3-way con `|||||||`), blocchi malformati ignorati
+- [x] **TASK-002.2** — Creare `test/unit/core/git/ConflictParser.test.ts`: 13 test (no conflitti, 1 standard, 1 diff3, N conflitti, line numbers, contenuti HEAD/BASE/MERGING, blocchi malformati, sezioni vuote)
 
 ---
 
