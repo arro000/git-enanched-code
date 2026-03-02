@@ -1,0 +1,93 @@
+{
+  "name": "git-enhanced",
+  "displayName": "Git Enhanced",
+  "description": "Advanced 3-column merge editor for VS Code with smart conflict resolution",
+  "version": "0.1.0",
+  "publisher": "signori-agenti",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/signori-agenti/git-enhanced"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["git", "merge", "conflict", "diff", "editor"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "git-enhanced.openMergeEditor",
+        "title": "Open Merge Editor",
+        "category": "Git Enhanced"
+      },
+      {
+        "command": "git-enhanced.openOnboarding",
+        "title": "Open Onboarding",
+        "category": "Git Enhanced"
+      }
+    ],
+    "configuration": {
+      "title": "Git Enhanced",
+      "properties": {
+        "gitEnhanced.activationMode": {
+          "type": "string",
+          "enum": ["auto", "manual"],
+          "default": "auto",
+          "enumDescriptions": [
+            "Automatically open the Git Enhanced merge editor when a merge conflict is detected",
+            "Open the Git Enhanced merge editor manually from the Command Palette"
+          ],
+          "description": "Controls how the Git Enhanced merge editor is activated when a merge conflict is detected."
+        }
+      }
+    },
+    "customEditors": [
+      {
+        "viewType": "git-enhanced.mergeEditor",
+        "displayName": "Git Enhanced Merge Editor",
+        "selector": [
+          {
+            "filenamePattern": "*"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "git-enhanced.navigateNextConflict",
+        "key": "F7",
+        "when": "git-enhanced.mergeEditorActive"
+      },
+      {
+        "command": "git-enhanced.navigatePrevConflict",
+        "key": "shift+F7",
+        "when": "git-enhanced.mergeEditorActive"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.config.js",
+    "watch": "node esbuild.config.js --watch",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.3.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  },
+  "dependencies": {
+    "simple-git": "^3.22.0"
+  }
+}
