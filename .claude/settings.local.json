@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls c:/study/repositories/signori-agenti/git-enanched-code/esbuild*)"
+    ]
+  }
+}
