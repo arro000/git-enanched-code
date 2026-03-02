@@ -144,7 +144,7 @@ Developer freelance o open source contributor che gestiscono repository personal
 - Parsing conflict markers e separazione HEAD/BASE/MERGING
 - Applicazione chunk con `>>` (sinistra→centrale) e `<<` (destra→centrale)
 - Scarto chunk con `x` su entrambe le colonne
-- Accodamento chunk quando entrambe le colonne contribuiscono allo stesso conflitto
+- Accodamento chunk quan do entrambe le colonne contribuiscono allo stesso conflitto
 - Pulsante "Complete Merge" con popup di conferma se conflitti residui
 - Salvataggio file + `git add` al completamento
 - Fallback automatico all'editor nativo in caso di errore
