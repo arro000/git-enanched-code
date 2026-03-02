@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasConflictMarkers, countConflicts } from './ConflictDetector';
+import { hasConflictMarkers, countConflicts } from '../../../../src/core/git/ConflictDetector';
 import type * as vscode from 'vscode';
 
 function makeDocument(content: string): vscode.TextDocument {
