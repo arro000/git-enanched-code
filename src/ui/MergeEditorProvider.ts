@@ -37,16 +37,31 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
     ): Promise<void> {
         try {
             webviewPanel.title = 'Git Enhanced — Merge Editor';
+            // US-007: Configure webview with Monaco Editor resource access
+            const monacoBasePath = vscode.Uri.joinPath(
+                this.context.extensionUri,
+                'node_modules',
+                'monaco-editor',
+                'min'
+            );
             webviewPanel.webview.options = {
                 enableScripts: true,
+                localResourceRoots: [monacoBasePath],
             };
 
             // US-006: Parse conflicts and prepare data for 3-column layout
             const conflittiParsati = parseConflicts(document);
             const righeDocumento = document.getText().split('\n');
 
+            // US-007: Prepare Monaco Editor configuration
+            const monacoBaseUri = webviewPanel.webview.asWebviewUri(monacoBasePath).toString();
+            const cspSource = webviewPanel.webview.cspSource;
+            const linguaggioId = this.detectLanguageIdFromFileName(document.fileName);
+
             const nonce = this.generaNonce();
-            webviewPanel.webview.html = this.getMergeEditorHtml(document.fileName, nonce);
+            webviewPanel.webview.html = this.getMergeEditorHtml(
+                document.fileName, nonce, monacoBaseUri, cspSource, linguaggioId
+            );
 
             // US-005: Try to restore previous merge session state
             const contenutoOriginale = document.getText();
@@ -144,14 +159,20 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
         return nonce;
     }
 
-    private getMergeEditorHtml(fileName: string, nonce: string): string {
+    private getMergeEditorHtml(
+        fileName: string,
+        nonce: string,
+        monacoBaseUri: string,
+        cspSource: string,
+        linguaggioId: string
+    ): string {
         const fileNameSanitizzato = this.escapaHtml(fileName);
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}' ${cspSource} 'unsafe-eval'; style-src 'unsafe-inline' ${cspSource}; font-src ${cspSource}; worker-src blob:;">
     <title>Git Enhanced — Merge Editor</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -234,12 +255,25 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             overflow-y: auto;
             overflow-x: auto;
         }
+        .column-result {
+            position: relative;
+            overflow: hidden;
+        }
         .column-separator {
             background: var(--vscode-panel-border, #444);
             flex-shrink: 0;
         }
 
-        /* Code content */
+        /* Monaco Editor container */
+        #monacoEditorContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        /* Code content for side columns */
         .code-segment {
             font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
             font-size: var(--vscode-editor-font-size, 13px);
@@ -258,19 +292,6 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
         .conflict-segment-merging {
             background: var(--vscode-merge-incomingContentBackground, rgba(40, 100, 200, 0.12));
             border-left: 3px solid var(--vscode-merge-incomingHeaderBackground, rgba(40, 120, 220, 0.6));
-        }
-        .conflict-segment-result {
-            background: var(--vscode-editorWarning-background, rgba(200, 150, 40, 0.08));
-            border-left: 3px solid var(--vscode-editorWarning-foreground, rgba(200, 150, 40, 0.5));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .conflict-label {
-            font-size: 0.8em;
-            opacity: 0.45;
-            font-style: italic;
-            user-select: none;
         }
 
         /* Loading state */
@@ -301,17 +322,33 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             <div class="loading-indicator">Loading...</div>
         </div>
         <div class="column-separator"></div>
-        <div class="column" id="columnResult">
-            <div class="loading-indicator">Loading...</div>
+        <div class="column column-result" id="columnResult">
+            <div id="monacoEditorContainer"></div>
         </div>
         <div class="column-separator"></div>
         <div class="column" id="columnMerging">
             <div class="loading-indicator">Loading...</div>
         </div>
     </div>
+    <script nonce="${nonce}" src="${monacoBaseUri}/vs/loader.js"></script>
     <script nonce="${nonce}">
         (function() {
             var vscode = acquireVsCodeApi();
+            var monacoEditorInstance = null;
+            var linguaggioId = '${linguaggioId}';
+
+            // US-007: Configure Monaco AMD loader
+            require.config({ paths: { 'vs': '${monacoBaseUri}/vs' }});
+
+            // Use blob workers to avoid CSP issues with data: URLs
+            window.MonacoEnvironment = {
+                getWorkerUrl: function() {
+                    return URL.createObjectURL(new Blob(
+                        ['self.onmessage = function() {}'],
+                        { type: 'text/javascript' }
+                    ));
+                }
+            };
 
             function buildSegmentsFromConflicts(righe, conflitti) {
                 var segmenti = [];
@@ -343,40 +380,92 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 return segmenti;
             }
 
-            function renderColonna(contenitore, segmenti, tipoColonna) {
-                contenitore.innerHTML = '';
+            function buildInitialResultContent(righe, conflitti) {
+                var resultLines = [];
+                var rigaCorrente = 0;
+                for (var i = 0; i < conflitti.length; i++) {
+                    var c = conflitti[i];
+                    for (var j = rigaCorrente; j < c.startLine; j++) {
+                        resultLines.push(righe[j]);
+                    }
+                    resultLines.push('// [Conflitto #' + (c.index + 1) + ' -- irrisolto]');
+                    rigaCorrente = c.endLine + 1;
+                }
+                for (var j = rigaCorrente; j < righe.length; j++) {
+                    resultLines.push(righe[j]);
+                }
+                return resultLines.join('\\n');
+            }
+
+            function renderColonneLaterali(segmenti) {
+                var columnHead = document.getElementById('columnHead');
+                var columnMerging = document.getElementById('columnMerging');
+                columnHead.innerHTML = '';
+                columnMerging.innerHTML = '';
 
                 for (var i = 0; i < segmenti.length; i++) {
                     var segmento = segmenti[i];
-                    var div = document.createElement('div');
 
+                    // HEAD column
+                    var divHead = document.createElement('div');
                     if (segmento.tipo === 'comune') {
-                        div.className = 'code-segment';
-                        div.textContent = segmento.contenuto;
+                        divHead.className = 'code-segment';
+                        divHead.textContent = segmento.contenuto;
                     } else {
-                        if (tipoColonna === 'head') {
-                            div.className = 'code-segment conflict-segment conflict-segment-head';
-                            div.textContent = segmento.head;
-                        } else if (tipoColonna === 'merging') {
-                            div.className = 'code-segment conflict-segment conflict-segment-merging';
-                            div.textContent = segmento.merging;
-                        } else {
-                            div.className = 'code-segment conflict-segment conflict-segment-result';
-                            var label = document.createElement('span');
-                            label.className = 'conflict-label';
-                            label.textContent = '[ conflitto #' + (segmento.indice + 1) + ' -- irrisolto ]';
-                            div.appendChild(label);
-                        }
+                        divHead.className = 'code-segment conflict-segment conflict-segment-head';
+                        divHead.textContent = segmento.head;
                     }
-                    contenitore.appendChild(div);
+                    columnHead.appendChild(divHead);
+
+                    // MERGING column
+                    var divMerging = document.createElement('div');
+                    if (segmento.tipo === 'comune') {
+                        divMerging.className = 'code-segment';
+                        divMerging.textContent = segmento.contenuto;
+                    } else {
+                        divMerging.className = 'code-segment conflict-segment conflict-segment-merging';
+                        divMerging.textContent = segmento.merging;
+                    }
+                    columnMerging.appendChild(divMerging);
                 }
+            }
+
+            function creaMonacoEditor(contenutoIniziale) {
+                var isDarkTheme = document.body.classList.contains('vscode-dark') ||
+                                  document.body.classList.contains('vscode-high-contrast');
+                var monacoTheme = isDarkTheme ? 'vs-dark' : 'vs';
+
+                monacoEditorInstance = monaco.editor.create(
+                    document.getElementById('monacoEditorContainer'),
+                    {
+                        value: contenutoIniziale,
+                        language: linguaggioId,
+                        theme: monacoTheme,
+                        readOnly: false,
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: false,
+                        lineNumbers: 'on',
+                        automaticLayout: true,
+                        wordWrap: 'off',
+                        renderWhitespace: 'selection',
+                        fontSize: 13,
+                        tabSize: 2,
+                        folding: true,
+                        glyphMargin: false,
+                        lineDecorationsWidth: 5,
+                    }
+                );
             }
 
             function inizializzaLayout(dati) {
                 var segmenti = buildSegmentsFromConflicts(dati.righe, dati.conflitti);
-                renderColonna(document.getElementById('columnHead'), segmenti, 'head');
-                renderColonna(document.getElementById('columnResult'), segmenti, 'result');
-                renderColonna(document.getElementById('columnMerging'), segmenti, 'merging');
+                renderColonneLaterali(segmenti);
+
+                // US-007: Initialize Monaco Editor in the result column
+                var contenutoRisultato = buildInitialResultContent(dati.righe, dati.conflitti);
+                require(['vs/editor/editor.main'], function() {
+                    creaMonacoEditor(contenutoRisultato);
+                });
             }
 
             // Complete Merge button
@@ -396,7 +485,10 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                         button.disabled = true;
                     }
                 } else if (message.command === 'statoRipristinato') {
-                    // US-005: Handle state restoration (will be enhanced in future stories)
+                    // US-005: Restore result column content from saved state
+                    if (message.stato && message.stato.contenutoColonnaCentrale && monacoEditorInstance) {
+                        monacoEditorInstance.setValue(message.stato.contenutoColonnaCentrale);
+                    }
                 }
             });
 
@@ -406,6 +498,48 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
     </script>
 </body>
 </html>`;
+    }
+
+    private detectLanguageIdFromFileName(fileName: string): string {
+        const estensioneFile = fileName.split('.').pop()?.toLowerCase() || '';
+        const mappaLinguaggi: Record<string, string> = {
+            'ts': 'typescript',
+            'tsx': 'typescript',
+            'js': 'javascript',
+            'jsx': 'javascript',
+            'mjs': 'javascript',
+            'cjs': 'javascript',
+            'py': 'python',
+            'java': 'java',
+            'cs': 'csharp',
+            'kt': 'kotlin',
+            'kts': 'kotlin',
+            'rs': 'rust',
+            'go': 'go',
+            'json': 'json',
+            'html': 'html',
+            'htm': 'html',
+            'css': 'css',
+            'scss': 'scss',
+            'less': 'less',
+            'md': 'markdown',
+            'yaml': 'yaml',
+            'yml': 'yaml',
+            'xml': 'xml',
+            'sql': 'sql',
+            'sh': 'shell',
+            'bash': 'shell',
+            'vue': 'html',
+            'rb': 'ruby',
+            'php': 'php',
+            'c': 'c',
+            'cpp': 'cpp',
+            'h': 'c',
+            'hpp': 'cpp',
+            'swift': 'swift',
+            'r': 'r',
+        };
+        return mappaLinguaggi[estensioneFile] || 'plaintext';
     }
 
     public openForDocument(document: vscode.TextDocument): void {

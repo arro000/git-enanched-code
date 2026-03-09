@@ -191,9 +191,9 @@ voglio editare liberamente il testo nella colonna centrale con Monaco Editor con
 in modo da avere un'esperienza di editing di qualità professionale durante la risoluzione dei conflitti.
 
 **Acceptance Criteria**
-- [ ] Monaco Editor è funzionale nella colonna centrale: syntax highlighting attivo, IntelliSense disponibile per i linguaggi supportati
-- [ ] Il cursore è posizionabile e il testo è editabile liberamente nell'intera colonna centrale, non solo nelle aree dei chunk applicati
-- [ ] Monaco Editor non introduce latenza percettibile durante la digitazione normale
+- [x] Monaco Editor è funzionale nella colonna centrale: syntax highlighting attivo, IntelliSense disponibile per i linguaggi supportati
+- [x] Il cursore è posizionabile e il testo è editabile liberamente nell'intera colonna centrale, non solo nelle aree dei chunk applicati
+- [x] Monaco Editor non introduce latenza percettibile durante la digitazione normale
 
 ---
 

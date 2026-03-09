@@ -110,6 +110,7 @@
     "vitest": "^1.4.0"
   },
   "dependencies": {
+    "monaco-editor": "^0.55.1",
     "simple-git": "^3.22.0"
   }
 }

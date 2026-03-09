@@ -12,6 +12,7 @@ const mockWorkspaceState = {
 const mockContext = {
     workspaceState: mockWorkspaceState,
     subscriptions: [],
+    extensionUri: { fsPath: '/mock-extension', scheme: 'file', toString: () => 'file:///mock-extension' },
 };
 
 vi.mock('vscode', () => ({
@@ -29,6 +30,11 @@ vi.mock('vscode', () => ({
     },
     Uri: {
         file: (percorso: string) => ({ fsPath: percorso, scheme: 'file', toString: () => percorso }),
+        joinPath: (...parti: unknown[]) => ({
+            fsPath: (parti as { fsPath?: string }[]).map(p => (typeof p === 'string' ? p : (p as { fsPath?: string }).fsPath || '')).join('/'),
+            scheme: 'file',
+            toString: () => 'file:///mock-monaco-path',
+        }),
     },
 }));
 
@@ -98,6 +104,8 @@ function creaMockWebviewPanel(): {
         options: Record<string, unknown>;
         postMessage: typeof mockPostMessage;
         onDidReceiveMessage: typeof mockOnDidReceiveMessage;
+        asWebviewUri: (uri: unknown) => { toString: () => string };
+        cspSource: string;
     };
     title: string;
 } {
@@ -107,6 +115,8 @@ function creaMockWebviewPanel(): {
             options: {},
             postMessage: mockPostMessage,
             onDidReceiveMessage: mockOnDidReceiveMessage,
+            asWebviewUri: () => ({ toString: () => 'https://file+.vscode-resource.vscode-cdn.net/mock-monaco' }),
+            cspSource: 'https://file+.vscode-resource.vscode-cdn.net',
         },
         title: '',
     };
@@ -192,7 +202,8 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
             await inizializzaEditor();
             const html = pannelloWebview.webview.html;
             // The JS renders segments using div elements with code-segment class and textContent
-            expect(html).toContain("div.className = 'code-segment'");
+            expect(html).toContain("divHead.className = 'code-segment'");
+            expect(html).toContain("divMerging.className = 'code-segment'");
         });
     });
 
@@ -367,6 +378,213 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
             );
             expect(chiamatePostMessage).toContain('inizializzaLayout');
             expect(chiamatePostMessage).not.toContain('statoRipristinato');
+        });
+    });
+});
+
+describe('MergeEditorProvider — US-007: Monaco Editor nella colonna centrale', () => {
+    let pannelloWebview: ReturnType<typeof creaMockWebviewPanel>;
+    let documento: MockDocument;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        pannelloWebview = creaMockWebviewPanel();
+        documento = creaMockDocument();
+        mockWorkspaceState.get.mockReturnValue(undefined);
+    });
+
+    async function inizializzaEditor(): Promise<void> {
+        const provider = new (MergeEditorProvider as unknown as {
+            new (context: vscode.ExtensionContext): MergeEditorProvider;
+        })(mockContext as unknown as vscode.ExtensionContext);
+
+        await provider.resolveCustomTextEditor(
+            documento as unknown as vscode.TextDocument,
+            pannelloWebview as unknown as vscode.WebviewPanel,
+            {} as vscode.CancellationToken
+        );
+    }
+
+    describe('AC1: Monaco Editor funzionale con syntax highlighting', () => {
+        it('loads Monaco AMD loader from the extension resources', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('vs/loader.js');
+            expect(html).toContain('vscode-resource');
+        });
+
+        it('configures require.config with the Monaco base path', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("require.config");
+            expect(html).toContain("paths: { 'vs':");
+        });
+
+        it('requires vs/editor/editor.main to load Monaco', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("require(['vs/editor/editor.main']");
+        });
+
+        it('creates Monaco editor with the detected language', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            // The file is test-file.ts → language 'typescript'
+            expect(html).toContain("var linguaggioId = 'typescript'");
+        });
+
+        it('creates Monaco editor using monaco.editor.create', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('monaco.editor.create');
+        });
+
+        it('detects dark/light theme from VS Code body classes', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('vscode-dark');
+            expect(html).toContain("'vs-dark'");
+            expect(html).toContain("'vs'");
+        });
+    });
+
+    describe('AC2: cursore posizionabile e testo editabile', () => {
+        it('creates Monaco editor with readOnly set to false', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('readOnly: false');
+        });
+
+        it('the Monaco container fills the entire result column', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('id="monacoEditorContainer"');
+            // Container uses absolute positioning to fill parent
+            expect(html).toContain('#monacoEditorContainer');
+            expect(html).toMatch(/position:\s*absolute/);
+        });
+
+        it('enables automaticLayout for responsive resizing', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('automaticLayout: true');
+        });
+    });
+
+    describe('AC3: nessuna latenza percettibile durante la digitazione', () => {
+        it('disables minimap to reduce rendering overhead', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('minimap: { enabled: false }');
+        });
+
+        it('enables line numbers for code navigation', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("lineNumbers: 'on'");
+        });
+
+        it('uses blob workers to avoid blocking the main thread', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('MonacoEnvironment');
+            expect(html).toContain('getWorkerUrl');
+            expect(html).toContain('URL.createObjectURL');
+        });
+    });
+
+    describe('CSP per Monaco Editor', () => {
+        it('includes cspSource in script-src to allow loading Monaco files', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('vscode-resource.vscode-cdn.net');
+            expect(html).toContain("script-src 'nonce-");
+        });
+
+        it('includes unsafe-eval for Monaco AMD require system', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("'unsafe-eval'");
+        });
+
+        it('includes font-src for Monaco codicons', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('font-src');
+        });
+
+        it('includes worker-src blob: for Monaco web workers', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('worker-src blob:');
+        });
+    });
+
+    describe('Configurazione webview per risorse Monaco', () => {
+        it('sets localResourceRoots to include Monaco editor directory', async () => {
+            await inizializzaEditor();
+            const opzioni = pannelloWebview.webview.options as {
+                enableScripts?: boolean;
+                localResourceRoots?: unknown[];
+            };
+            expect(opzioni.enableScripts).toBe(true);
+            expect(opzioni.localResourceRoots).toBeDefined();
+            expect(opzioni.localResourceRoots!.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe('Contenuto iniziale del result column', () => {
+        it('builds initial result content with conflict placeholders', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            // The JS function builds initial content with placeholders for conflicts
+            expect(html).toContain('buildInitialResultContent');
+            expect(html).toContain('Conflitto #');
+            expect(html).toContain('irrisolto');
+        });
+    });
+
+    describe('Rilevamento linguaggio dal nome file', () => {
+        it('detects TypeScript for .ts files', async () => {
+            documento = creaMockDocument();
+            documento.fileName = '/workspace/app.ts';
+            await inizializzaEditor();
+            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'typescript'");
+        });
+
+        it('detects JavaScript for .js files', async () => {
+            documento = creaMockDocument();
+            documento.fileName = '/workspace/app.js';
+            await inizializzaEditor();
+            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'javascript'");
+        });
+
+        it('detects Python for .py files', async () => {
+            documento = creaMockDocument();
+            documento.fileName = '/workspace/app.py';
+            await inizializzaEditor();
+            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'python'");
+        });
+
+        it('defaults to plaintext for unknown extensions', async () => {
+            documento = creaMockDocument();
+            documento.fileName = '/workspace/data.xyz';
+            await inizializzaEditor();
+            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'plaintext'");
+        });
+
+        it('detects CSharp for .cs files', async () => {
+            documento = creaMockDocument();
+            documento.fileName = '/workspace/Program.cs';
+            await inizializzaEditor();
+            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'csharp'");
+        });
+
+        it('detects Rust for .rs files', async () => {
+            documento = creaMockDocument();
+            documento.fileName = '/workspace/main.rs';
+            await inizializzaEditor();
+            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'rust'");
         });
     });
 });
