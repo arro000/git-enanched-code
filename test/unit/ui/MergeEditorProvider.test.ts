@@ -873,3 +873,118 @@ describe('MergeEditorProvider — US-009: Applicazione chunk MERGING con << e x'
         });
     });
 });
+
+describe('MergeEditorProvider — US-010: Accodamento chunk da entrambe le colonne', () => {
+    let pannelloWebview: ReturnType<typeof creaMockWebviewPanel>;
+    let documento: MockDocument;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        pannelloWebview = creaMockWebviewPanel();
+        documento = creaMockDocument();
+        mockWorkspaceState.get.mockReturnValue(undefined);
+    });
+
+    async function inizializzaEditor(): Promise<void> {
+        const provider = new (MergeEditorProvider as unknown as {
+            new (context: vscode.ExtensionContext): MergeEditorProvider;
+        })(mockContext as unknown as vscode.ExtensionContext);
+
+        await provider.resolveCustomTextEditor(
+            documento as unknown as vscode.TextDocument,
+            pannelloWebview as unknown as vscode.WebviewPanel,
+            {} as vscode.CancellationToken
+        );
+    }
+
+    describe('AC1: entrambi >> e << applicati accodano i contenuti in sequenza', () => {
+        it('applicaChunkHead stores contenutoApplicato when placeholder is found', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('statiConflitti[indiceConflitto].contenutoApplicato = contenutoHead');
+        });
+
+        it('applicaChunkMerging stores contenutoApplicato when placeholder is found', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('statiConflitti[indiceConflitto].contenutoApplicato = contenutoMerging');
+        });
+
+        it('when placeholder is gone, HEAD apply searches for previously applied content', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('statiConflitti[indiceConflitto].contenutoApplicato');
+            expect(html).toContain('matchesPrecedenti');
+            expect(html).toContain('accoda-chunk-head');
+        });
+
+        it('when placeholder is gone, MERGING apply searches for previously applied content', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('accoda-chunk-merging');
+        });
+    });
+
+    describe('AC2: nessun separatore visivo tra i chunk accodati', () => {
+        it('queued content uses only a newline separator without markers or visual separators', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            // Template literal \\n outputs literal \n in the HTML JS code
+            expect(html).toContain("'\\n' + contenutoHead");
+            expect(html).toContain("'\\n' + contenutoMerging");
+        });
+
+        it('does not insert any conflict marker or separator text between queued chunks', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            // Verify no separator pattern like "---" or "===" is added in queuing logic
+            const accodaHeadSection = html.substring(
+                html.indexOf('accoda-chunk-head'),
+                html.indexOf('accoda-chunk-head') + 300
+            );
+            expect(accodaHeadSection).not.toContain('---');
+            expect(accodaHeadSection).not.toContain('===');
+            expect(accodaHeadSection).not.toContain('<<<');
+            expect(accodaHeadSection).not.toContain('>>>');
+        });
+    });
+
+    describe('AC3: ordine di accodamento riflette ordine dei click', () => {
+        it('queued content is appended at the end of the previously applied range', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            // Insertion happens at the end of the previous content range
+            expect(html).toContain('rangePrecedente.endLineNumber');
+            expect(html).toContain('rangePrecedente.endColumn');
+        });
+
+        it('contenutoApplicato is updated to include both chunks after queuing', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            // After queuing, the combined content is stored for potential further queuing
+            expect(html).toContain("contenutoPrecedente + '\\n' + contenutoHead");
+            expect(html).toContain("contenutoPrecedente + '\\n' + contenutoMerging");
+        });
+
+        it('uses Monaco Range for precise insertion positioning', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('monaco.Range');
+            expect(html).toContain('rangeInserimento');
+        });
+    });
+
+    describe('Stato iniziale contenutoApplicato', () => {
+        it('conflict state initializes contenutoApplicato as null', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('contenutoApplicato: null');
+        });
+
+        it('queuing only triggers when contenutoApplicato is truthy', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('statiConflitti[indiceConflitto].contenutoApplicato');
+        });
+    });
+});

@@ -374,7 +374,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             var vscode = acquireVsCodeApi();
             var monacoEditorInstance = null;
             var linguaggioId = '${linguaggioId}';
-            var statiConflitti = {};  // { index: { headGestito: bool, mergingGestito: bool } }
+            var statiConflitti = {};  // { index: { headGestito: bool, mergingGestito: bool, contenutoApplicato: string|null } }
             var segmentiGlobali = null;  // stored for re-rendering
 
             // US-007: Configure Monaco AMD loader
@@ -438,6 +438,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             }
 
             // US-008: Apply HEAD chunk content to the result column via Monaco
+            // US-010: Supports queuing — if MERGING was already applied, appends after it
             function applicaChunkHead(indiceConflitto, contenutoHead) {
                 if (!monacoEditorInstance) return;
                 var model = monacoEditorInstance.getModel();
@@ -450,6 +451,22 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                         range: range,
                         text: contenutoHead
                     }]);
+                    statiConflitti[indiceConflitto].contenutoApplicato = contenutoHead;
+                } else if (statiConflitti[indiceConflitto].contenutoApplicato) {
+                    // US-010: Placeholder already replaced — queue after previously applied content
+                    var contenutoPrecedente = statiConflitti[indiceConflitto].contenutoApplicato;
+                    var matchesPrecedenti = model.findMatches(contenutoPrecedente, false, false, true, null, false);
+                    if (matchesPrecedenti.length > 0) {
+                        var rangePrecedente = matchesPrecedenti[0].range;
+                        var fineRiga = rangePrecedente.endLineNumber;
+                        var fineColonna = rangePrecedente.endColumn;
+                        var rangeInserimento = new monaco.Range(fineRiga, fineColonna, fineRiga, fineColonna);
+                        monacoEditorInstance.executeEdits('accoda-chunk-head', [{
+                            range: rangeInserimento,
+                            text: '\\n' + contenutoHead
+                        }]);
+                        statiConflitti[indiceConflitto].contenutoApplicato = contenutoPrecedente + '\\n' + contenutoHead;
+                    }
                 }
 
                 statiConflitti[indiceConflitto].headGestito = true;
@@ -463,6 +480,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             }
 
             // US-009: Apply MERGING chunk content to the result column via Monaco
+            // US-010: Supports queuing — if HEAD was already applied, appends after it
             function applicaChunkMerging(indiceConflitto, contenutoMerging) {
                 if (!monacoEditorInstance) return;
                 var model = monacoEditorInstance.getModel();
@@ -475,6 +493,22 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                         range: range,
                         text: contenutoMerging
                     }]);
+                    statiConflitti[indiceConflitto].contenutoApplicato = contenutoMerging;
+                } else if (statiConflitti[indiceConflitto].contenutoApplicato) {
+                    // US-010: Placeholder already replaced — queue after previously applied content
+                    var contenutoPrecedente = statiConflitti[indiceConflitto].contenutoApplicato;
+                    var matchesPrecedenti = model.findMatches(contenutoPrecedente, false, false, true, null, false);
+                    if (matchesPrecedenti.length > 0) {
+                        var rangePrecedente = matchesPrecedenti[0].range;
+                        var fineRiga = rangePrecedente.endLineNumber;
+                        var fineColonna = rangePrecedente.endColumn;
+                        var rangeInserimento = new monaco.Range(fineRiga, fineColonna, fineRiga, fineColonna);
+                        monacoEditorInstance.executeEdits('accoda-chunk-merging', [{
+                            range: rangeInserimento,
+                            text: '\\n' + contenutoMerging
+                        }]);
+                        statiConflitti[indiceConflitto].contenutoApplicato = contenutoPrecedente + '\\n' + contenutoMerging;
+                    }
                 }
 
                 statiConflitti[indiceConflitto].mergingGestito = true;
@@ -564,7 +598,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
 
                         // Initialize conflict state
                         if (!statiConflitti[segmento.indice]) {
-                            statiConflitti[segmento.indice] = { headGestito: false, mergingGestito: false };
+                            statiConflitti[segmento.indice] = { headGestito: false, mergingGestito: false, contenutoApplicato: null };
                         }
                     }
                     columnHead.appendChild(divHead);
@@ -613,7 +647,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
 
                         // Initialize conflict state (shared with HEAD)
                         if (!statiConflitti[segmento.indice]) {
-                            statiConflitti[segmento.indice] = { headGestito: false, mergingGestito: false };
+                            statiConflitti[segmento.indice] = { headGestito: false, mergingGestito: false, contenutoApplicato: null };
                         }
                     }
                     columnMerging.appendChild(divMerging);

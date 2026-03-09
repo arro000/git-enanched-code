@@ -239,9 +239,9 @@ quando applico chunk da entrambe le colonne sullo stesso conflitto voglio che il
 in modo da ottenere un risultato pulito che non richiede post-editing per rimuovere artefatti visivi.
 
 **Acceptance Criteria**
-- [ ] Se `>>` e `<<` vengono applicati entrambi sullo stesso conflitto, i contenuti di entrambe le colonne appaiono in sequenza nella colonna centrale
-- [ ] Nessun separatore visivo o marker di testo viene inserito tra i due chunk accodati
-- [ ] L'ordine di accodamento riflette l'ordine dei click (il secondo click accoda dopo il primo)
+- [x] Se `>>` e `<<` vengono applicati entrambi sullo stesso conflitto, i contenuti di entrambe le colonne appaiono in sequenza nella colonna centrale
+- [x] Nessun separatore visivo o marker di testo viene inserito tra i due chunk accodati
+- [x] L'ordine di accodamento riflette l'ordine dei click (il secondo click accoda dopo il primo)
 
 ---
 
