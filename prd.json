@@ -1,0 +1,596 @@
+{
+  "name": "Git Enhanced - Advanced Merge Editor for VS Code",
+  "description": "VS Code extension che porta su VS Code la qualità del merge editor di IntelliJ IDEA. Layout a 3 colonne con Monaco Editor, smart merge engine (diff3 + Tree-sitter AST), minimap visiva e wizard onboarding. Open Source MIT, pubblicato su VS Code Marketplace e Open VSX Registry. **Version:** 1.0 **Date:** 2026-02-23 **Status:** Approved **License:** MIT",
+  "branchName": "feature/product-requirements-document",
+  "userStories": [
+    {
+      "id": "STORY-001",
+      "title": "Persona: Developer in Team Piccoli",
+      "description": "Come developer in un team di 2-10 persone con workflow a feature branches e Pull Request (GitHub/GitLab/Bitbucket), uso VS Code come editor primario e gestisco ~10 conflitti a settimana, prevalentemente complessi (logica di business). Lavoro con TypeScript, JavaScript (React/Angular/Vue), C#, Java, Kotlin, Rust. Ho bisogno di un merge editor professionale che non mi costringa ad aprire IntelliJ solo per i merge.",
+      "acceptanceCriteria": [
+        "L'estensione intercetta automaticamente i merge conflict senza configurazione manuale",
+        "Il layout a 3 colonne (HEAD / RESULT / MERGING) è immediatamente comprensibile senza formazione",
+        "La risoluzione automatica riduce il numero di conflitti che richiedono intervento manuale",
+        "I shortcut F7/Shift+F7 e >>/<< sono documentati inline nell'editor",
+        "L'estensione funziona con tutti i linguaggi del team: TypeScript, JavaScript, C#, Java, Kotlin, Rust"
+      ],
+      "priority": 1,
+      "passes": true,
+      "labels": [
+        "persona",
+        "primary-user"
+      ],
+      "dependsOn": [],
+      "completionNotes": "Persona di riferimento primaria per tutte le decisioni di UX e priorità feature"
+    },
+    {
+      "id": "STORY-002",
+      "title": "Persona: Developer Individuali",
+      "description": "Come developer freelance o open source contributor che gestisce repository personali, voglio un'esperienza di merge di qualità senza dover installare un IDE pesante. Uso VS Code come unico editor e voglio un tool che mi guidi durante la risoluzione dei conflitti.",
+      "acceptanceCriteria": [
+        "L'estensione è installabile con un click dal VS Code Marketplace senza setup aggiuntivo",
+        "Il wizard onboarding spiega il funzionamento in meno di 2 minuti",
+        "L'estensione funziona completamente offline senza dipendenze da servizi esterni",
+        "Il bundle size è < 25MB per non impattare le performance dell'editor",
+        "L'estensione è compatibile con VSCodium e Code OSS (nessuna API proprietaria Microsoft)"
+      ],
+      "priority": 2,
+      "passes": true,
+      "labels": [
+        "persona",
+        "secondary-user"
+      ],
+      "dependsOn": [],
+      "completionNotes": "Persona secondaria — guida le decisioni di semplicità d'uso e onboarding"
+    },
+    {
+      "id": "US-01",
+      "title": "Intercettazione automatica merge conflicts",
+      "description": "Come developer, quando eseguo un merge con conflitti, l'estensione intercetta l'evento e apre il merge editor a 3 colonne al posto dell'editor nativo di VS Code.",
+      "acceptanceCriteria": [
+        "L'estensione si attiva automaticamente all'installazione senza configurazione manuale",
+        "Quando VS Code rileva un file con conflict markers (<<<<<<< / ======= / >>>>>>>), viene aperto il merge editor Git Enhanced invece dell'editor nativo",
+        "Il tempo tra il rilevamento del conflitto e l'apertura dell'editor è < 500ms",
+        "L'intercettazione funziona su Windows 10+, macOS 12+ e Ubuntu 20.04+",
+        "L'estensione richiede VS Code versione minima 1.85.0 e Git versione minima 2.23.0"
+      ],
+      "priority": 1,
+      "passes": true,
+      "labels": [
+        "epic-01",
+        "foundation",
+        "v0.1.0"
+      ],
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-02",
+      "title": "Parsing conflict markers nelle 3 componenti",
+      "description": "Come developer, voglio che il file con conflict markers venga parsato correttamente nelle 3 componenti (HEAD, BASE, MERGING) per ogni conflitto presente nel file.",
+      "acceptanceCriteria": [
+        "Il parser identifica correttamente i delimitatori <<<<<<< HEAD, =======, >>>>>>> MERGING",
+        "Ogni conflitto viene separato nelle componenti HEAD (branch corrente), BASE (antenato comune, se presente), MERGING (branch in ingresso)",
+        "File con conflitti multipli vengono parsati completamente, tutti i conflitti sono rilevati",
+        "File senza conflict markers vengono gestiti senza errori",
+        "Il parser gestisce conflitti annidati o edge case di formattazione senza crash"
+      ],
+      "priority": 1,
+      "passes": true,
+      "labels": [
+        "epic-01",
+        "foundation",
+        "v0.1.0"
+      ],
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-03",
+      "title": "Salvataggio file e git add al completamento",
+      "description": "Come developer, al completamento della risoluzione voglio che il file venga salvato automaticamente e che `git add` venga eseguito, senza dover eseguire operazioni manuali.",
+      "acceptanceCriteria": [
+        "Al click su 'Complete Merge' (confermato), il file viene salvato su disco",
+        "Dopo il salvataggio, `git add <filepath>` viene eseguito automaticamente tramite simple-git",
+        "In caso di errore nel salvataggio o nel git add, l'utente riceve un messaggio di errore chiaro",
+        "Il file originale non viene modificato finché il completamento non è confermato esplicitamente dall'utente",
+        "L'operazione di salvataggio + git add è atomica: se una fallisce, l'altra non produce effetti parziali"
+      ],
+      "priority": 1,
+      "passes": true,
+      "labels": [
+        "epic-01",
+        "foundation",
+        "v0.1.0"
+      ],
+      "dependsOn": [
+        "US-01",
+        "US-02"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-04",
+      "title": "Fallback automatico all'editor nativo in caso di errore",
+      "description": "Come developer, se l'estensione fallisce per qualsiasi ragione voglio un fallback automatico all'editor nativo VS Code senza perdita di dati e senza bloccare il mio workflow.",
+      "acceptanceCriteria": [
+        "Se l'estensione lancia un'eccezione non gestita durante l'apertura, VS Code apre automaticamente l'editor nativo sul file",
+        "Il file originale con conflict markers rimane intatto: nessuna modifica distruttiva automatica",
+        "L'errore viene loggato nel canale output dell'estensione per il debug, ma non mostra una modal bloccante all'utente",
+        "Il fallback funziona anche se l'errore avviene durante il parsing, il rendering React o la comunicazione con il git service",
+        "Lo stato di un merge parzialmente risolto viene preservato se possibile, o il file originale viene ripristinato"
+      ],
+      "priority": 1,
+      "passes": true,
+      "labels": [
+        "epic-01",
+        "foundation",
+        "reliability",
+        "v0.1.0"
+      ],
+      "dependsOn": [
+        "US-01"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-05",
+      "title": "Layout a 3 colonne HEAD / RESULT / MERGING",
+      "description": "Come developer, voglio vedere le 3 colonne (HEAD / RESULT / MERGING) chiaramente separate, etichettate e dimensionate in modo da capire immediatamente quale codice appartiene a quale branch.",
+      "acceptanceCriteria": [
+        "L'editor mostra 3 colonne affiancate: sinistra (HEAD / Il tuo codice), centrale (Result), destra (MERGING / Codice in arrivo)",
+        "Ogni colonna ha un header con il label corrispondente",
+        "Le colonne sinistra e destra sono read-only (nessuna modifica diretta consentita)",
+        "La colonna centrale è pienamente editabile con Monaco Editor",
+        "Il layout è responsive: le colonne si ridimensionano proporzionalmente alla finestra dell'editor",
+        "Il layout è implementato come WebviewPanel con React per consentire il controllo completo su layout e stili"
+      ],
+      "priority": 2,
+      "passes": true,
+      "labels": [
+        "epic-02",
+        "ui",
+        "v0.1.0"
+      ],
+      "dependsOn": [
+        "US-02"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-06",
+      "title": "Monaco Editor nella colonna centrale",
+      "description": "Come developer, voglio editare liberamente il testo nella colonna centrale con Monaco Editor, con syntax highlighting e IntelliSense, esattamente come farei in VS Code.",
+      "acceptanceCriteria": [
+        "La colonna centrale usa Monaco Editor embedded nel WebviewPanel",
+        "Il syntax highlighting è attivo in base al linguaggio del file in conflitto",
+        "L'editing è libero: l'utente può scrivere, incollare, cancellare qualsiasi testo indipendentemente dai chunk applicati",
+        "Monaco Editor condivide il worker con VS Code tramite le API esposte per contenere l'impatto sul bundle",
+        "Le modifiche nella colonna centrale sono riflesse in tempo reale senza lag percepibile"
+      ],
+      "priority": 2,
+      "passes": true,
+      "labels": [
+        "epic-02",
+        "ui",
+        "monaco",
+        "v0.1.0"
+      ],
+      "dependsOn": [
+        "US-05"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-07",
+      "title": "Applicazione chunk dalla colonna sinistra",
+      "description": "Come developer, voglio applicare un chunk dalla colonna sinistra (HEAD) verso la colonna centrale con il pulsante `>>`, oppure scartarlo con `x`.",
+      "acceptanceCriteria": [
+        "Ogni conflitto nella colonna sinistra mostra i pulsanti '>>' e 'x'",
+        "Il click su '>>' copia il testo HEAD del conflitto nella colonna centrale, nella posizione corrispondente",
+        "Il click su 'x' scarta il chunk HEAD: il conflitto rimane aperto ma HEAD non contribuisce al risultato",
+        "Dopo l'applicazione o lo scarto, i pulsanti cambiano stato per indicare l'azione eseguita (reversibile)",
+        "L'operazione è reversibile: l'utente può cambiare idea fino al completamento del merge"
+      ],
+      "priority": 2,
+      "passes": true,
+      "labels": [
+        "epic-02",
+        "ui",
+        "chunk-controls",
+        "v0.1.0"
+      ],
+      "dependsOn": [
+        "US-05",
+        "US-06"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-08",
+      "title": "Applicazione chunk dalla colonna destra",
+      "description": "Come developer, voglio applicare un chunk dalla colonna destra (MERGING) verso la colonna centrale con il pulsante `<<`, oppure scartarlo con `x`.",
+      "acceptanceCriteria": [
+        "Ogni conflitto nella colonna destra mostra i pulsanti '<<' e 'x'",
+        "Il click su '<<' copia il testo MERGING del conflitto nella colonna centrale, nella posizione corrispondente",
+        "Il click su 'x' scarta il chunk MERGING: il conflitto rimane aperto ma MERGING non contribuisce al risultato",
+        "Dopo l'applicazione o lo scarto, i pulsanti cambiano stato per indicare l'azione eseguita (reversibile)",
+        "L'operazione è reversibile: l'utente può cambiare idea fino al completamento del merge"
+      ],
+      "priority": 2,
+      "passes": true,
+      "labels": [
+        "epic-02",
+        "ui",
+        "chunk-controls",
+        "v0.1.0"
+      ],
+      "dependsOn": [
+        "US-05",
+        "US-06"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-09",
+      "title": "Accodamento chunk quando entrambe le colonne contribuiscono",
+      "description": "Come developer, quando applico chunk da entrambe le colonne (HEAD e MERGING) sullo stesso conflitto, voglio che il secondo chunk si accodi al primo nella colonna centrale senza separatori visivi aggiuntivi.",
+      "acceptanceCriteria": [
+        "Se l'utente applica prima '>>' e poi '<<' (o viceversa) sullo stesso conflitto, il testo nella centrale è la concatenazione dei due chunk nell'ordine di applicazione",
+        "Non viene aggiunto nessun separatore visivo (commento, linea vuota aggiuntiva, marker) tra i chunk accodati",
+        "Il risultato nella colonna centrale rimane liberamente editabile con Monaco dopo l'accodamento",
+        "L'accodamento funziona in entrambi gli ordini: HEAD+MERGING e MERGING+HEAD"
+      ],
+      "priority": 2,
+      "passes": true,
+      "labels": [
+        "epic-02",
+        "ui",
+        "chunk-controls",
+        "v0.1.0"
+      ],
+      "dependsOn": [
+        "US-07",
+        "US-08"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-10",
+      "title": "Auto-resolve con diff3 per modifiche non sovrapposte",
+      "description": "Come developer, voglio che le modifiche non sovrapposte vengano identificate e risolte automaticamente da diff3 prima che interagisca con l'editor, così da trovare la colonna centrale già parzialmente popolata.",
+      "acceptanceCriteria": [
+        "Prima dell'apertura dell'editor, viene eseguito `git merge-file` con algoritmo diff3 sul file in conflitto",
+        "Le modifiche non sovrapposte tra HEAD, BASE e MERGING vengono risolte automaticamente e inserite nella colonna centrale",
+        "Solo i conflitti genuini (modifiche sovrapposte) rimangono aperti e richiedono intervento manuale",
+        "L'operazione diff3 completa in < 200ms per file fino a 5.000 righe",
+        "In caso di errore diff3, l'editor si apre comunque con la colonna centrale vuota (nessun blocco)"
+      ],
+      "priority": 3,
+      "passes": false,
+      "labels": [
+        "epic-03",
+        "smart-merge",
+        "diff3",
+        "v0.2.0"
+      ],
+      "dependsOn": [
+        "US-02",
+        "US-05"
+      ],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-11",
+      "title": "Analisi AST con Tree-sitter per conflitti semanticamente compatibili",
+      "description": "Come developer, voglio che Tree-sitter analizzi i conflitti rimanenti dopo diff3 e proponga risoluzioni per le modifiche semanticamente compatibili (es. aggiunta di metodi in classi diverse, import non sovrapposti).",
+      "acceptanceCriteria": [
+        "Dopo l'analisi diff3, i conflitti rimanenti vengono analizzati con Tree-sitter AST",
+        "Se le modifiche in HEAD e MERGING sono semanticamente compatibili (non interferiscono strutturalmente), viene proposta una risoluzione con un punteggio di confidenza",
+        "L'analisi AST completa in < 1 secondo per file fino a 5.000 righe",
+        "L'analisi AST è asincrona e non blocca l'Extension Host né il rendering dell'UI",
+        "In caso di errore di parsing AST (file non valido sintatticamente), il conflitto rimane aperto senza crash"
+      ],
+      "priority": 3,
+      "passes": false,
+      "labels": [
+        "epic-03",
+        "smart-merge",
+        "tree-sitter",
+        "v0.2.0"
+      ],
+      "dependsOn": [
+        "US-10"
+      ],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-12",
+      "title": "Bacchetta magica: applica tutte le risoluzioni automatiche",
+      "description": "Come developer, voglio cliccare la bacchetta magica (icona wand) per applicare in una sola azione tutte le risoluzioni automatiche identificate da diff3 e Tree-sitter.",
+      "acceptanceCriteria": [
+        "Un'icona bacchetta magica (wand) è visibile nell'interfaccia dell'editor",
+        "Il click sulla bacchetta applica tutte le risoluzioni automatiche disponibili (diff3 + AST) simultaneamente",
+        "Nessuna risoluzione automatica viene applicata senza il click esplicito dell'utente sulla bacchetta (nessun auto-apply silenzioso)",
+        "Dopo il click, i conflitti auto-risolti scompaiono dall'elenco dei conflitti aperti e la colonna centrale è aggiornata",
+        "I conflitti che non hanno una risoluzione automatica rimangono aperti e invariati"
+      ],
+      "priority": 3,
+      "passes": false,
+      "labels": [
+        "epic-03",
+        "smart-merge",
+        "magic-wand",
+        "v0.2.0"
+      ],
+      "dependsOn": [
+        "US-10",
+        "US-11"
+      ],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-13",
+      "title": "Tooltip bacchetta magica con contatore e confidenza",
+      "description": "Come developer, voglio che il tooltip della bacchetta magica mostri 'X conflitti risolvibili su Y totali' con un indicatore di confidenza, per capire quanti conflitti possono essere risolti automaticamente prima di cliccare.",
+      "acceptanceCriteria": [
+        "Al hover sull'icona bacchetta magica, appare un tooltip",
+        "Il tooltip mostra il testo 'X conflitti risolvibili su Y totali' con i valori corretti e aggiornati in tempo reale",
+        "Il tooltip include un indicatore visivo di confidenza (es. percentuale, icona o colore) per le risoluzioni proposte",
+        "Il tooltip è accessibile da screen reader tramite attributo aria-label",
+        "Il tooltip si aggiorna automaticamente quando i conflitti vengono risolti manualmente (Y decresce)"
+      ],
+      "priority": 3,
+      "passes": false,
+      "labels": [
+        "epic-03",
+        "smart-merge",
+        "magic-wand",
+        "v0.2.0"
+      ],
+      "dependsOn": [
+        "US-12"
+      ],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-14",
+      "title": "Supporto AST per tutti i linguaggi target",
+      "description": "Come developer, voglio che l'analisi AST supporti correttamente TypeScript, JavaScript (JSX/TSX/Vue/Angular), C#, Java, Kotlin e Rust, i linguaggi più usati dal target primario.",
+      "acceptanceCriteria": [
+        "Le grammar Tree-sitter incluse nel bundle sono: tree-sitter-typescript, tree-sitter-javascript, tree-sitter-c-sharp, tree-sitter-java, tree-sitter-kotlin, tree-sitter-rust",
+        "JavaScript copre JSX, TSX, Vue template e componenti Angular",
+        "Il LanguageDetector rileva automaticamente il linguaggio dal file extension o dal language mode di VS Code",
+        "Per file con linguaggi non supportati, l'analisi AST viene saltata e si usa solo diff3",
+        "Nuove grammar Tree-sitter sono aggiungibili dalla community tramite contribuzione (documentato in CONTRIBUTING.md)"
+      ],
+      "priority": 3,
+      "passes": false,
+      "labels": [
+        "epic-03",
+        "smart-merge",
+        "tree-sitter",
+        "languages",
+        "v0.2.0"
+      ],
+      "dependsOn": [
+        "US-11"
+      ],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-15",
+      "title": "Minimap laterale con highlight per stato conflitti",
+      "description": "Come developer, voglio una minimap laterale con highlight colorato (verde/grigio/rosso) che visualizzi lo stato di tutti i conflitti nel file per orientarmi rapidamente in file con molti conflitti.",
+      "acceptanceCriteria": [
+        "Una barra verticale proporzionale (minimap) è visualizzata sul lato destro dell'editor",
+        "Le regioni della minimap sono colorizzate: verde per codice aggiunto/risolto, grigio per codice rimosso, rosso per conflitti ancora aperti",
+        "La minimap si aggiorna in tempo reale quando i conflitti vengono risolti",
+        "Le proporzioni della minimap riflettono accuratamente la posizione relativa dei conflitti nel file",
+        "La minimap è visibile e leggibile anche su file con 100+ conflitti"
+      ],
+      "priority": 4,
+      "passes": false,
+      "labels": [
+        "epic-04",
+        "navigation",
+        "minimap",
+        "v0.3.0"
+      ],
+      "dependsOn": [
+        "US-05"
+      ],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-16",
+      "title": "Contatore numerico conflitti aperti",
+      "description": "Come developer, voglio un contatore numerico dei conflitti ancora aperti visibile in tutto momento nell'interfaccia, per sapere quanti conflitti mancano al completamento.",
+      "acceptanceCriteria": [
+        "Un contatore numerico mostra il numero di conflitti ancora aperti (non risolti)",
+        "Il contatore è persistente: sempre visibile durante tutta la sessione di merge",
+        "Il contatore si aggiorna automaticamente a ogni risoluzione di conflitto (manuale o automatica)",
+        "Il contatore è posizionato sopra o a fianco della minimap",
+        "Quando tutti i conflitti sono risolti, il contatore mostra 0 e un segnale visivo di completamento"
+      ],
+      "priority": 4,
+      "passes": false,
+      "labels": [
+        "epic-04",
+        "navigation",
+        "minimap",
+        "v0.3.0"
+      ],
+      "dependsOn": [
+        "US-15"
+      ],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-17",
+      "title": "Navigazione naturale con scroll e trackpad",
+      "description": "Come developer, voglio navigare nel documento con scroll del mouse o trackpad in modo naturale, senza comportamenti inaspettati introdotti dall'editor custom.",
+      "acceptanceCriteria": [
+        "Lo scroll verticale con mouse wheel o trackpad funziona come in qualsiasi editor VS Code nativo",
+        "Le 3 colonne scorrono in modo sincronizzato (scroll lock verticale tra le colonne)",
+        "Il trackpad gestisce correttamente il momentum e il two-finger scroll su macOS",
+        "Nessun jank o lag percepibile durante lo scroll su file con 1000+ righe"
+      ],
+      "priority": 4,
+      "passes": false,
+      "labels": [
+        "epic-04",
+        "navigation",
+        "v0.3.0"
+      ],
+      "dependsOn": [
+        "US-05"
+      ],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-18",
+      "title": "Navigazione tra conflitti con F7 e Shift+F7",
+      "description": "Come developer, voglio saltare al conflitto successivo con F7 e al precedente con Shift+F7, per navigare tra i conflitti senza usare il mouse.",
+      "acceptanceCriteria": [
+        "La pressione di F7 sposta il focus e lo scroll al conflitto successivo non risolto",
+        "La pressione di Shift+F7 sposta il focus e lo scroll al conflitto precedente non risolto",
+        "Quando si raggiunge l'ultimo conflitto e si preme F7, il focus torna al primo conflitto (wrap-around)",
+        "I conflitti già risolti vengono saltati dalla navigazione F7/Shift+F7",
+        "I shortcut sono documentati nel wizard onboarding (schermata 3) e nel tooltip inline dell'editor"
+      ],
+      "priority": 4,
+      "passes": false,
+      "labels": [
+        "epic-04",
+        "navigation",
+        "keyboard",
+        "v0.3.0"
+      ],
+      "dependsOn": [
+        "US-05"
+      ],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-19",
+      "title": "Click su minimap per navigazione diretta",
+      "description": "Come developer, voglio cliccare su qualsiasi punto della minimap per saltare direttamente a quella posizione nel documento, senza dover scorrere manualmente.",
+      "acceptanceCriteria": [
+        "Il click su un punto della minimap fa scrollare tutte le colonne alla posizione corrispondente nel documento",
+        "La posizione di click è mappata proporzionalmente alla posizione nel documento (click in cima = inizio file, click in fondo = fine file)",
+        "Il click su una zona rossa (conflitto aperto) nella minimap porta direttamente a quel conflitto",
+        "Il cursore nella minimap mostra visivamente la posizione corrente nel documento"
+      ],
+      "priority": 4,
+      "passes": false,
+      "labels": [
+        "epic-04",
+        "navigation",
+        "minimap",
+        "v0.3.0"
+      ],
+      "dependsOn": [
+        "US-15"
+      ],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-20",
+      "title": "Wizard onboarding al primo avvio",
+      "description": "Come nuovo utente, al primo avvio dell'estensione vedo un wizard di 3 schermate che spiega il layout e mi permette di scegliere il comportamento di apertura (automatico o manuale).",
+      "acceptanceCriteria": [
+        "Al primo avvio dell'estensione (mai usata prima), viene mostrato automaticamente il wizard onboarding",
+        "Il wizard ha 3 schermate: (1) Benvenuto con presentazione visiva del layout 3 colonne, (2) Configurazione apertura automatica vs manuale, (3) Riepilogo shortcut principali",
+        "L'impostazione scelta nella schermata 2 (automatico/manuale) viene persistita in VS Code settings",
+        "Il wizard è completabile in < 2 minuti",
+        "Un pulsante 'Skip' è sempre visibile per saltare il wizard in qualsiasi momento"
+      ],
+      "priority": 4,
+      "passes": false,
+      "labels": [
+        "epic-05",
+        "onboarding",
+        "v0.3.0"
+      ],
+      "dependsOn": [],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-21",
+      "title": "Riapertura wizard da Command Palette",
+      "description": "Come developer, voglio poter riaprire il wizard onboarding in qualsiasi momento tramite la Command Palette, per rivedere la configurazione o mostrarlo a un collega.",
+      "acceptanceCriteria": [
+        "Il comando 'Git Enhanced: Open Onboarding' è disponibile nella Command Palette di VS Code",
+        "Il click sul comando apre il wizard dalla prima schermata",
+        "Il wizard riapribile funziona anche se l'utente ha già completato o saltato l'onboarding in precedenza",
+        "Il comando è documentato nel README dell'estensione"
+      ],
+      "priority": 4,
+      "passes": false,
+      "labels": [
+        "epic-05",
+        "onboarding",
+        "command-palette",
+        "v0.3.0"
+      ],
+      "dependsOn": [
+        "US-20"
+      ],
+      "completionNotes": ""
+    },
+    {
+      "id": "US-22",
+      "title": "Popup di conferma Complete Merge con conflitti aperti",
+      "description": "Come developer, voglio che il pulsante 'Complete Merge' mostri un popup di conferma con il conteggio dei conflitti residui se ci sono ancora conflitti aperti, per evitare di completare il merge per errore.",
+      "acceptanceCriteria": [
+        "Il pulsante 'Complete Merge' è sempre visibile nell'interfaccia, indipendentemente dallo stato dei conflitti",
+        "Se tutti i conflitti sono risolti, il click su 'Complete Merge' esegue direttamente il salvataggio + git add",
+        "Se ci sono conflitti ancora aperti, appare un popup con il messaggio 'Ci sono ancora X conflitti irrisolti. Vuoi procedere comunque?' e due opzioni: Conferma / Annulla",
+        "Scegliendo Conferma, si procede con il salvataggio + git add nonostante i conflitti aperti",
+        "Scegliendo Annulla, il popup si chiude e il merge editor rimane aperto senza alcuna modifica"
+      ],
+      "priority": 2,
+      "passes": true,
+      "labels": [
+        "epic-02",
+        "ui",
+        "complete-merge",
+        "v0.1.0"
+      ],
+      "dependsOn": [
+        "US-03",
+        "US-05"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-23",
+      "title": "Pulsante Skip nel wizard onboarding",
+      "description": "Come nuovo utente, voglio poter saltare il wizard onboarding con un pulsante Skip sempre visibile, se voglio iniziare subito a usare l'estensione senza seguire il tutorial.",
+      "acceptanceCriteria": [
+        "Un pulsante 'Skip' è visibile in tutte e 3 le schermate del wizard",
+        "Il click su Skip chiude il wizard immediatamente e imposta il comportamento di apertura al valore default (automatico)",
+        "Dopo lo skip, il wizard non si riapre automaticamente alle aperture successive",
+        "Lo skip non impedisce di riaprire il wizard manualmente da Command Palette (US-21)"
+      ],
+      "priority": 2,
+      "passes": false,
+      "labels": [
+        "epic-02",
+        "onboarding",
+        "v0.1.0"
+      ],
+      "dependsOn": [
+        "US-20"
+      ],
+      "completionNotes": ""
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-03-09T14:24:12.724Z",
+    "version": "1.0.0",
+    "sourcePrd": "PRD.md",
+    "updatedAt": "2026-03-09T16:02:41.031Z"
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "name": "git-enhanced",
+  "displayName": "Git Enhanced - Advanced Merge Editor",
+  "description": "Professional 3-column merge editor for VS Code, bringing IntelliJ-quality merge resolution to your editor.",
+  "version": "0.1.0",
+  "publisher": "git-enhanced",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/git-enhanced/git-enhanced-vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "git",
+    "merge",
+    "conflict",
+    "diff",
+    "intellij"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "gitEnhanced.mergeEditor",
+        "displayName": "Git Enhanced Merge Editor",
+        "selector": [
+          {
+            "filenamePattern": "*"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "gitEnhanced.openMergeEditor",
+        "title": "Git Enhanced: Open Merge Editor"
+      },
+      {
+        "command": "gitEnhanced.openOnboarding",
+        "title": "Git Enhanced: Open Onboarding"
+      },
+      {
+        "command": "gitEnhanced.completeMerge",
+        "title": "Git Enhanced: Complete Merge"
+      },
+      {
+        "command": "gitEnhanced.nextConflict",
+        "title": "Git Enhanced: Next Conflict"
+      },
+      {
+        "command": "gitEnhanced.prevConflict",
+        "title": "Git Enhanced: Previous Conflict"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "gitEnhanced.nextConflict",
+        "key": "F7",
+        "when": "gitEnhanced.mergeEditorActive"
+      },
+      {
+        "command": "gitEnhanced.prevConflict",
+        "key": "shift+F7",
+        "when": "gitEnhanced.mergeEditorActive"
+      }
+    ],
+    "configuration": {
+      "title": "Git Enhanced",
+      "properties": {
+        "gitEnhanced.openMode": {
+          "type": "string",
+          "enum": [
+            "automatic",
+            "manual"
+          ],
+          "default": "automatic",
+          "description": "How the merge editor opens: automatically on merge conflict detection, or manually via Command Palette."
+        },
+        "gitEnhanced.showOnboarding": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show onboarding wizard on first launch."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.config.js",
+    "watch": "node esbuild.config.js --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext ts,tsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vscode-test",
+    "package": "vsce package",
+    "publish:vsce": "vsce publish",
+    "publish:ovsx": "ovsx publish"
+  },
+  "dependencies": {
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.3.0",
+    "esbuild": "^0.24.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.0.0"
+  }
+}
