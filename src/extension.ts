@@ -34,7 +34,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // Register all commands
-  const commands = new RegisterCommands(context, mergeOrchestrator, configManager);
+  const commands = new RegisterCommands(context, mergeOrchestrator, configManager, mergeEditorProvider);
   commands.register();
 
   // Initialize git service with the first workspace folder

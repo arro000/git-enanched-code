@@ -103,6 +103,14 @@ interface ThreeColumnLayoutProps {
   unresolvedCount: number;
   fileName: string;
   language: string;
+  /** Number of AST resolution candidates available for the wand button. */
+  astResolutionCount: number;
+  /** Average confidence (0–1) across all AST resolution candidates. */
+  astAverageConfidence: number;
+  /** Called when the user clicks the wand button to apply all AST resolutions. */
+  onApplyWand: () => void;
+  /** Ref attached to the columns scroll container, forwarded to ConflictMinimap for cursor tracking. */
+  columnsContainerRef?: React.RefObject<HTMLDivElement>;
 }
 
 export function ThreeColumnLayout({
@@ -116,7 +124,25 @@ export function ThreeColumnLayout({
   unresolvedCount,
   fileName,
   language,
+  astResolutionCount,
+  astAverageConfidence,
+  onApplyWand,
+  columnsContainerRef,
 }: ThreeColumnLayoutProps): JSX.Element {
+  // Scroll the current conflict block into view when the index changes
+  const blockRefs = React.useRef<(HTMLDivElement | null)[]>([]);
+  React.useEffect(() => {
+    blockRefs.current[currentConflictIndex]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [currentConflictIndex]);
+  const confidencePct = Math.round(astAverageConfidence * 100);
+  const confidenceColor =
+    confidencePct >= 80
+      ? 'var(--vscode-testing-iconPassed, #4caf50)'
+      : confidencePct >= 60
+        ? 'var(--vscode-editorWarning-foreground, #e9a700)'
+        : 'var(--vscode-errorForeground, #f44747)';
+  const wandTooltip = `${astResolutionCount} resolvable of ${unresolvedCount} unresolved — avg confidence: ${confidencePct}%`;
+  const wandAriaLabel = `Apply ${astResolutionCount} smart merge resolution${astResolutionCount > 1 ? 's' : ''} — ${unresolvedCount} conflict${unresolvedCount > 1 ? 's' : ''} remaining, average confidence ${confidencePct}%`;
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header */}
@@ -127,6 +153,32 @@ export function ThreeColumnLayout({
             ? `${unresolvedCount} conflict${unresolvedCount > 1 ? 's' : ''} remaining`
             : 'All conflicts resolved'}
         </span>
+        {astResolutionCount > 0 && (
+          <button
+            style={styles.wandBtn}
+            onClick={onApplyWand}
+            title={wandTooltip}
+            aria-label={wandAriaLabel}
+          >
+            ✨ {astResolutionCount} auto-resolvable
+            <span
+              style={{
+                marginLeft: 6,
+                padding: '1px 5px',
+                borderRadius: 10,
+                background: confidenceColor,
+                color: '#fff',
+                fontSize: '0.8em',
+                fontWeight: 600,
+                lineHeight: 1.4,
+                verticalAlign: 'middle',
+              }}
+              aria-hidden="true"
+            >
+              {confidencePct}%
+            </span>
+          </button>
+        )}
         <button style={styles.completeMergeBtn} onClick={onCompleteMerge}>
           Complete Merge
         </button>
@@ -140,15 +192,16 @@ export function ThreeColumnLayout({
       </div>
 
       {/* Content columns */}
-      <div style={styles.columnsContainer}>
+      <div ref={columnsContainerRef} style={styles.columnsContainer}>
         <div style={styles.column}>
-          {chunks.map((chunk) => (
+          {chunks.map((chunk, idx) => (
             <ConflictBlock
               key={chunk.startLine}
               chunk={chunk}
               side="left"
               resolved={resolvedChunks.has(chunk.startLine)}
-              isCurrent={chunks.indexOf(chunk) === currentConflictIndex}
+              isCurrent={idx === currentConflictIndex}
+              blockRef={(el) => { blockRefs.current[idx] = el; }}
               onApply={() => {
                 const existing = resolvedChunks.get(chunk.startLine) ?? [];
                 onResolveChunk(chunk.startLine, [...existing, ...chunk.headLines]);
@@ -159,12 +212,12 @@ export function ThreeColumnLayout({
         </div>
 
         <div style={{ ...styles.column, ...styles.centerColumn }}>
-          {chunks.map((chunk) => (
+          {chunks.map((chunk, idx) => (
             <CenterBlock
               key={chunk.startLine}
               chunk={chunk}
               resolvedLines={resolvedChunks.get(chunk.startLine)}
-              isCurrent={chunks.indexOf(chunk) === currentConflictIndex}
+              isCurrent={idx === currentConflictIndex}
               onUpdate={(lines) => onResolveChunk(chunk.startLine, lines)}
               language={language}
             />
@@ -172,13 +225,13 @@ export function ThreeColumnLayout({
         </div>
 
         <div style={styles.column}>
-          {chunks.map((chunk) => (
+          {chunks.map((chunk, idx) => (
             <ConflictBlock
               key={chunk.startLine}
               chunk={chunk}
               side="right"
               resolved={resolvedChunks.has(chunk.startLine)}
-              isCurrent={chunks.indexOf(chunk) === currentConflictIndex}
+              isCurrent={idx === currentConflictIndex}
               onApply={() => {
                 const existing = resolvedChunks.get(chunk.startLine) ?? [];
                 onResolveChunk(chunk.startLine, [...existing, ...chunk.mergingLines]);
@@ -201,6 +254,7 @@ interface ConflictBlockProps {
   isCurrent: boolean;
   onApply: () => void;
   onUnresolveChunk: (startLine: number) => void;
+  blockRef?: (el: HTMLDivElement | null) => void;
 }
 
 function ConflictBlock({
@@ -210,6 +264,7 @@ function ConflictBlock({
   isCurrent,
   onApply,
   onUnresolveChunk,
+  blockRef,
 }: ConflictBlockProps): JSX.Element {
   const [sideAction, setSideAction] = React.useState<SideAction>('none');
   const lines = side === 'left' ? chunk.headLines : chunk.mergingLines;
@@ -233,6 +288,7 @@ function ConflictBlock({
 
   return (
     <div
+      ref={blockRef}
       style={{
         ...styles.conflictBlock,
         ...(isCurrent ? styles.currentConflict : {}),
@@ -342,6 +398,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.9em',
     whiteSpace: 'nowrap',
   },
+  wandBtn: {
+    padding: '4px 12px',
+    background: 'var(--vscode-button-secondaryBackground, #5a5a5a)',
+    color: 'var(--vscode-button-secondaryForeground, #fff)',
+    border: '1px solid var(--vscode-button-border, transparent)',
+    borderRadius: 3,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    fontSize: '0.9em',
+    whiteSpace: 'nowrap',
+  },
   columnHeaders: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr 1fr',
@@ -369,7 +436,9 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--vscode-panel-border)',
   },
   column: {
-    overflow: 'auto',
+    // No overflow here — columnsContainer is the single vertical scroll container,
+    // keeping all three columns synchronized. Horizontal overflow is handled per-block
+    // by <pre overflowX="auto"> and Monaco's own scrollbar.
     background: 'var(--vscode-editor-background)',
     display: 'flex',
     flexDirection: 'column',

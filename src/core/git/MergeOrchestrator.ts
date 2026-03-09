@@ -1,25 +1,40 @@
 import * as fs from 'fs/promises';
 import { GitService } from './GitService';
 import { parseConflicts, hasConflictMarkers, ConflictChunk } from './ConflictParser';
+import { Diff3Resolver } from '../merge/Diff3Resolver';
+import { AstMerger, AstMergeCandidate } from '../merge/AstMerger';
+import { detectLanguage } from '../merge/LanguageDetector';
 
 export interface MergeSession {
   filePath: string;
   originalContent: string;
   chunks: ConflictChunk[];
-  /** Map from conflict startLine to resolved lines */
+  /** Map from conflict startLine to resolved lines (auto-applied: diff3). */
   resolvedChunks: Map<number, string[]>;
+  /**
+   * AST-based resolution candidates (not yet applied to resolvedChunks).
+   * Applied in bulk when the user clicks the wand (US-12).
+   */
+  astResolutions: Map<number, AstMergeCandidate>;
 }
 
 export class MergeOrchestrator {
   private activeSessions: Map<string, MergeSession> = new Map();
+  private readonly diff3Resolver = new Diff3Resolver();
+  private readonly astMerger = new AstMerger();
 
   constructor(private readonly gitService: GitService) {}
 
   /**
    * Opens a merge session for the given file.
    * Returns null if the file has no conflict markers.
+   *
+   * @param filePath   Absolute path to the conflict file
+   * @param languageId Optional VS Code languageId (document.languageId).
+   *                   When provided, used as the primary signal for AST language
+   *                   detection; falls back to file extension otherwise.
    */
-  async openSession(filePath: string): Promise<MergeSession | null> {
+  async openSession(filePath: string, languageId?: string): Promise<MergeSession | null> {
     const content = await fs.readFile(filePath, 'utf-8');
 
     if (!hasConflictMarkers(content)) {
@@ -32,7 +47,16 @@ export class MergeOrchestrator {
       originalContent: content,
       chunks,
       resolvedChunks: new Map(),
+      astResolutions: new Map(),
     };
+
+    // Pre-resolve non-conflicting chunks via diff3 (RF-03, RF-04).
+    // Errors are swallowed so the editor always opens (RNF-04).
+    await this.applyDiff3PreResolution(session);
+
+    // Analyse remaining chunks for AST-compatible resolutions (RF-04, US-11).
+    // Results stored in session.astResolutions; applied on wand click (US-12).
+    await this.applyAstAnalysis(session, languageId);
 
     this.activeSessions.set(filePath, session);
     return session;
@@ -124,6 +148,82 @@ export class MergeOrchestrator {
 
   getSession(filePath: string): MergeSession | undefined {
     return this.activeSessions.get(filePath);
+  }
+
+  /**
+   * Applies all pending AST resolution candidates to resolvedChunks.
+   * Called when the user clicks the wand button (US-12).
+   */
+  applyWandResolutions(filePath: string): void {
+    const session = this.activeSessions.get(filePath);
+    if (!session) return;
+    for (const [startLine, candidate] of session.astResolutions) {
+      if (!session.resolvedChunks.has(startLine)) {
+        session.resolvedChunks.set(startLine, candidate.resolvedLines);
+      }
+    }
+    session.astResolutions.clear();
+  }
+
+  /**
+   * Runs diff3 auto-resolution and populates session.resolvedChunks for all
+   * chunks that can be resolved without user interaction.
+   * Never throws — failures are silently ignored so the editor opens anyway.
+   */
+  private async applyDiff3PreResolution(session: MergeSession): Promise<void> {
+    try {
+      let oursContent: string | undefined;
+      let baseContent: string | undefined;
+      let theirsContent: string | undefined;
+
+      if (this.gitService.isInitialized()) {
+        try {
+          [oursContent, baseContent, theirsContent] = await Promise.all([
+            this.gitService.getFileAtStage(session.filePath, 2),
+            this.gitService.getFileAtStage(session.filePath, 1),
+            this.gitService.getFileAtStage(session.filePath, 3),
+          ]);
+        } catch {
+          // Git stages not available (e.g. file not in merge state) — use chunk-level only
+        }
+      }
+
+      const resolvedChunks = await this.diff3Resolver.resolveChunks(
+        session.chunks,
+        oursContent,
+        baseContent,
+        theirsContent
+      );
+
+      for (const [startLine, lines] of resolvedChunks) {
+        session.resolvedChunks.set(startLine, lines);
+      }
+    } catch {
+      // Non-blocking: if diff3 resolution fails entirely, open editor with empty center column
+    }
+  }
+
+  /**
+   * Runs AST-based analysis on the chunks still unresolved after diff3.
+   * Results are stored in session.astResolutions (not applied automatically).
+   * Never throws — failures are silently ignored so the editor always opens (RNF-04).
+   */
+  private async applyAstAnalysis(session: MergeSession, languageId?: string): Promise<void> {
+    try {
+      const unresolvedChunks = session.chunks.filter(
+        (c) => !session.resolvedChunks.has(c.startLine)
+      );
+      if (unresolvedChunks.length === 0) return;
+
+      const language = detectLanguage(session.filePath, languageId);
+      const candidates = await this.astMerger.analyzeChunks(unresolvedChunks, language);
+
+      for (const [startLine, candidate] of candidates) {
+        session.astResolutions.set(startLine, candidate);
+      }
+    } catch {
+      // Non-blocking: AST analysis failure never prevents the editor from opening.
+    }
   }
 
   private buildResolvedContent(session: MergeSession): string {

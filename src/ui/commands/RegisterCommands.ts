@@ -7,7 +7,8 @@ export class RegisterCommands {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly _mergeOrchestrator: MergeOrchestrator,
-    private readonly configManager: ConfigManager
+    private readonly configManager: ConfigManager,
+    private readonly mergeEditorProvider: MergeEditorProvider
   ) {}
 
   register(): void {
@@ -37,7 +38,12 @@ export class RegisterCommands {
           if (message.type === 'setOpenMode') {
             await this.configManager.setOpenMode(message.mode);
           }
-          if (message.type === 'complete' || message.type === 'skip') {
+          if (message.type === 'skip') {
+            await this.configManager.setOpenMode('automatic');
+            await this.configManager.markOnboardingCompleted();
+            panel.dispose();
+          }
+          if (message.type === 'complete') {
             await this.configManager.markOnboardingCompleted();
             panel.dispose();
           }
@@ -50,11 +56,11 @@ export class RegisterCommands {
       }),
 
       vscode.commands.registerCommand('gitEnhanced.nextConflict', () => {
-        vscode.commands.executeCommand('gitEnhanced.webview.nextConflict');
+        this.mergeEditorProvider.postNavigationMessage('next');
       }),
 
       vscode.commands.registerCommand('gitEnhanced.prevConflict', () => {
-        vscode.commands.executeCommand('gitEnhanced.webview.prevConflict');
+        this.mergeEditorProvider.postNavigationMessage('prev');
       })
     );
   }
@@ -154,7 +160,7 @@ export class RegisterCommands {
       Reopen this guide anytime: <em>Git Enhanced: Open Onboarding</em>
     </p>
     <div class="actions">
-      <span></span>
+      <button class="btn btn-secondary" onclick="skip()">Skip</button>
       <button class="btn btn-primary" onclick="complete()">Get Started</button>
     </div>
   </div>

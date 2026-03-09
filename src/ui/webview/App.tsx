@@ -1,12 +1,19 @@
-import { useEffect, useReducer, useCallback } from 'react';
+import { useEffect, useReducer, useCallback, useRef } from 'react';
 import { ConflictChunk } from '../../core/git/ConflictParser';
 import { ThreeColumnLayout } from './ThreeColumnLayout/ThreeColumnLayout';
 import { ConflictMinimap } from './ConflictMinimap/ConflictMinimap';
+
+export interface AstResolutionEntry {
+  resolvedLines: string[];
+  confidence: number;
+}
 
 export interface AppState {
   chunks: ConflictChunk[];
   /** Map from startLine to resolved lines */
   resolvedChunks: Map<number, string[]>;
+  /** AST resolution candidates (not yet applied). Applied on wand click (US-12). */
+  astResolutions: Map<number, AstResolutionEntry>;
   originalContent: string;
   fileName: string;
   currentConflictIndex: number;
@@ -14,23 +21,46 @@ export interface AppState {
 }
 
 type AppAction =
-  | { type: 'INIT'; chunks: ConflictChunk[]; originalContent: string; fileName: string }
+  | {
+      type: 'INIT';
+      chunks: ConflictChunk[];
+      originalContent: string;
+      fileName: string;
+      /** Pre-resolved chunks from diff3 auto-resolution (startLine string → resolvedLines) */
+      resolvedChunks?: Record<string, string[]>;
+      /** AST resolution candidates, applied on wand click (startLine string → entry) */
+      astResolutions?: Record<string, AstResolutionEntry>;
+    }
   | { type: 'RESOLVE_CHUNK'; startLine: number; resolvedLines: string[] }
   | { type: 'UNRESOLVE_CHUNK'; startLine: number }
+  | { type: 'APPLY_WAND_RESOLUTIONS' }
   | { type: 'JUMP_CONFLICT'; direction: 'next' | 'prev' }
   | { type: 'JUMP_TO_INDEX'; index: number }
   | { type: 'UPDATE_CONFLICT_COUNT'; count: number };
 
 function reducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
-    case 'INIT':
+    case 'INIT': {
+      const preResolved: Map<number, string[]> = action.resolvedChunks
+        ? new Map(
+            Object.entries(action.resolvedChunks).map(([k, v]) => [Number(k), v])
+          )
+        : new Map();
+      const astRes: Map<number, AstResolutionEntry> = action.astResolutions
+        ? new Map(
+            Object.entries(action.astResolutions).map(([k, v]) => [Number(k), v])
+          )
+        : new Map();
       return {
         ...state,
         chunks: action.chunks,
+        resolvedChunks: preResolved,
+        astResolutions: astRes,
         originalContent: action.originalContent,
         fileName: action.fileName,
         isReady: true,
       };
+    }
     case 'RESOLVE_CHUNK': {
       const next = new Map(state.resolvedChunks);
       next.set(action.startLine, action.resolvedLines);
@@ -40,6 +70,15 @@ function reducer(state: AppState, action: AppAction): AppState {
       const next = new Map(state.resolvedChunks);
       next.delete(action.startLine);
       return { ...state, resolvedChunks: next };
+    }
+    case 'APPLY_WAND_RESOLUTIONS': {
+      const next = new Map(state.resolvedChunks);
+      for (const [startLine, entry] of state.astResolutions) {
+        if (!next.has(startLine)) {
+          next.set(startLine, entry.resolvedLines);
+        }
+      }
+      return { ...state, resolvedChunks: next, astResolutions: new Map() };
     }
     case 'JUMP_CONFLICT': {
       const unresolvedIndices = state.chunks
@@ -73,6 +112,7 @@ function reducer(state: AppState, action: AppAction): AppState {
 const initialState: AppState = {
   chunks: [],
   resolvedChunks: new Map(),
+  astResolutions: new Map(),
   originalContent: '',
   fileName: '',
   currentConflictIndex: 0,
@@ -87,6 +127,7 @@ interface AppProps {
 
 export function App({ vscodeApi, language }: AppProps): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const columnsContainerRef = useRef<HTMLDivElement>(null);
 
   // Signal ready to extension host
   useEffect(() => {
@@ -104,6 +145,8 @@ export function App({ vscodeApi, language }: AppProps): JSX.Element {
             chunks: message.chunks,
             originalContent: message.originalContent,
             fileName: message.fileName,
+            resolvedChunks: message.resolvedChunks,
+            astResolutions: message.astResolutions,
           });
           break;
         case 'jumpToConflict':
@@ -144,6 +187,11 @@ export function App({ vscodeApi, language }: AppProps): JSX.Element {
     vscodeApi.postMessage({ type: 'completeMerge', forceComplete: false });
   }, [vscodeApi]);
 
+  const handleApplyWand = useCallback(() => {
+    dispatch({ type: 'APPLY_WAND_RESOLUTIONS' });
+    vscodeApi.postMessage({ type: 'applyWandResolutions' });
+  }, [vscodeApi]);
+
   if (!state.isReady) {
     return (
       <div style={{ padding: 24, color: 'var(--vscode-descriptionForeground)' }}>
@@ -169,6 +217,15 @@ export function App({ vscodeApi, language }: AppProps): JSX.Element {
         unresolvedCount={unresolvedCount}
         fileName={state.fileName}
         language={language}
+        astResolutionCount={state.astResolutions.size}
+        astAverageConfidence={
+          state.astResolutions.size > 0
+            ? [...state.astResolutions.values()].reduce((s, e) => s + e.confidence, 0) /
+              state.astResolutions.size
+            : 0
+        }
+        onApplyWand={handleApplyWand}
+        columnsContainerRef={columnsContainerRef}
       />
       <ConflictMinimap
         chunks={state.chunks}
@@ -176,6 +233,7 @@ export function App({ vscodeApi, language }: AppProps): JSX.Element {
         totalLines={state.originalContent.split('\n').length}
         currentConflictIndex={state.currentConflictIndex}
         onJumpToChunk={(index) => dispatch({ type: 'JUMP_TO_INDEX', index })}
+        scrollContainer={columnsContainerRef}
       />
     </div>
   );

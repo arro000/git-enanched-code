@@ -6,12 +6,19 @@ import { ConfigManager } from '../config/ConfigManager';
 export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'gitEnhanced.mergeEditor';
 
+  private activePanel: vscode.WebviewPanel | null = null;
+
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly mergeOrchestrator: MergeOrchestrator,
     private readonly _configManager: ConfigManager,
     private readonly outputChannel: vscode.OutputChannel
   ) {}
+
+  /** Post a navigation message to the currently active merge editor webview. */
+  public postNavigationMessage(direction: 'next' | 'prev'): void {
+    this.activePanel?.webview.postMessage({ type: 'jumpToConflict', direction });
+  }
 
   async resolveCustomTextEditor(
     document: vscode.TextDocument,
@@ -21,7 +28,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
     const filePath = document.uri.fsPath;
 
     try {
-      const session = await this.mergeOrchestrator.openSession(filePath);
+      const session = await this.mergeOrchestrator.openSession(filePath, document.languageId);
 
       if (!session) {
         // No conflicts found - fall back to native editor
@@ -53,6 +60,8 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
         this.context.subscriptions
       );
 
+      this.activePanel = webviewPanel;
+
       // Set context for keybindings
       await vscode.commands.executeCommand(
         'setContext',
@@ -61,6 +70,9 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
       );
 
       webviewPanel.onDidDispose(async () => {
+        if (this.activePanel === webviewPanel) {
+          this.activePanel = null;
+        }
         await vscode.commands.executeCommand(
           'setContext',
           'gitEnhanced.mergeEditorActive',
@@ -150,8 +162,22 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             chunks: session.chunks,
             originalContent: session.originalContent,
             fileName: path.basename(filePath),
+            // Pre-resolved chunks from diff3 — keyed by startLine (number → string[])
+            resolvedChunks: Object.fromEntries(session.resolvedChunks),
+            // AST resolution candidates — keyed by startLine, applied on wand click (US-12)
+            astResolutions: Object.fromEntries(
+              Array.from(session.astResolutions.entries()).map(([k, v]) => [
+                k,
+                { resolvedLines: v.resolvedLines, confidence: v.confidence },
+              ])
+            ),
           });
         }
+        break;
+      }
+
+      case 'applyWandResolutions': {
+        this.mergeOrchestrator.applyWandResolutions(filePath);
         break;
       }
     }

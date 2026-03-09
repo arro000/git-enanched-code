@@ -267,7 +267,7 @@
         "In caso di errore diff3, l'editor si apre comunque con la colonna centrale vuota (nessun blocco)"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-03",
         "smart-merge",
@@ -278,7 +278,7 @@
         "US-02",
         "US-05"
       ],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-11",
@@ -292,7 +292,7 @@
         "In caso di errore di parsing AST (file non valido sintatticamente), il conflitto rimane aperto senza crash"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-03",
         "smart-merge",
@@ -302,7 +302,7 @@
       "dependsOn": [
         "US-10"
       ],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-12",
@@ -316,7 +316,7 @@
         "I conflitti che non hanno una risoluzione automatica rimangono aperti e invariati"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-03",
         "smart-merge",
@@ -327,7 +327,7 @@
         "US-10",
         "US-11"
       ],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-13",
@@ -341,7 +341,7 @@
         "Il tooltip si aggiorna automaticamente quando i conflitti vengono risolti manualmente (Y decresce)"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-03",
         "smart-merge",
@@ -351,7 +351,7 @@
       "dependsOn": [
         "US-12"
       ],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-14",
@@ -365,7 +365,7 @@
         "Nuove grammar Tree-sitter sono aggiungibili dalla community tramite contribuzione (documentato in CONTRIBUTING.md)"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-03",
         "smart-merge",
@@ -376,7 +376,7 @@
       "dependsOn": [
         "US-11"
       ],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-15",
@@ -390,7 +390,7 @@
         "La minimap è visibile e leggibile anche su file con 100+ conflitti"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-04",
         "navigation",
@@ -400,7 +400,7 @@
       "dependsOn": [
         "US-05"
       ],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-16",
@@ -414,7 +414,7 @@
         "Quando tutti i conflitti sono risolti, il contatore mostra 0 e un segnale visivo di completamento"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-04",
         "navigation",
@@ -424,7 +424,7 @@
       "dependsOn": [
         "US-15"
       ],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-17",
@@ -437,7 +437,7 @@
         "Nessun jank o lag percepibile durante lo scroll su file con 1000+ righe"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-04",
         "navigation",
@@ -446,7 +446,7 @@
       "dependsOn": [
         "US-05"
       ],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-18",
@@ -460,7 +460,7 @@
         "I shortcut sono documentati nel wizard onboarding (schermata 3) e nel tooltip inline dell'editor"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-04",
         "navigation",
@@ -470,7 +470,7 @@
       "dependsOn": [
         "US-05"
       ],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-19",
@@ -483,7 +483,7 @@
         "Il cursore nella minimap mostra visivamente la posizione corrente nel documento"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-04",
         "navigation",
@@ -493,7 +493,7 @@
       "dependsOn": [
         "US-15"
       ],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-20",
@@ -507,14 +507,14 @@
         "Un pulsante 'Skip' è sempre visibile per saltare il wizard in qualsiasi momento"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-05",
         "onboarding",
         "v0.3.0"
       ],
       "dependsOn": [],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-21",
@@ -575,7 +575,7 @@
         "Lo skip non impedisce di riaprire il wizard manualmente da Command Palette (US-21)"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "labels": [
         "epic-02",
         "onboarding",
@@ -584,13 +584,13 @@
       "dependsOn": [
         "US-20"
       ],
-      "completionNotes": ""
+      "completionNotes": "Completed by agent"
     }
   ],
   "metadata": {
     "createdAt": "2026-03-09T14:24:12.724Z",
     "version": "1.0.0",
     "sourcePrd": "PRD.md",
-    "updatedAt": "2026-03-09T16:02:41.031Z"
+    "updatedAt": "2026-03-09T16:55:07.106Z"
   }
 }
