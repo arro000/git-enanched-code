@@ -175,9 +175,9 @@ voglio vedere le 3 colonne (HEAD / RESULT / MERGING) chiaramente separate, etich
 in modo da orientarmi immediatamente nel layout e capire il ruolo di ciascuna colonna senza leggere documentazione.
 
 **Acceptance Criteria**
-- [ ] Le 3 colonne sono affiancate e visivamente distinte con label rispettivamente "HEAD / Il tuo codice", "Result" e "MERGING / Codice in arrivo"
-- [ ] Le colonne sinistra e destra sono in modalità read-only (nessun cursore di testo editabile da parte dell'utente)
-- [ ] Il layout non presenta overflow orizzontale indesiderato su schermi con larghezza ≥ 1280px
+- [x] Le 3 colonne sono affiancate e visivamente distinte con label rispettivamente "HEAD / Il tuo codice", "Result" e "MERGING / Codice in arrivo"
+- [x] Le colonne sinistra e destra sono in modalità read-only (nessun cursore di testo editabile da parte dell'utente)
+- [x] Il layout non presenta overflow orizzontale indesiderato su schermi con larghezza ≥ 1280px
 
 ---
 
