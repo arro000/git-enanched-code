@@ -294,6 +294,44 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             border-left: 3px solid var(--vscode-merge-incomingHeaderBackground, rgba(40, 120, 220, 0.6));
         }
 
+        /* Conflict action buttons (US-008) */
+        .conflict-action-bar {
+            display: flex;
+            gap: 4px;
+            padding: 2px 4px 4px 4px;
+        }
+        .conflict-action-button {
+            padding: 1px 8px;
+            font-size: 0.75em;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--vscode-panel-border, #555);
+            border-radius: 3px;
+            background: var(--vscode-button-secondaryBackground, #333);
+            color: var(--vscode-button-secondaryForeground, #ccc);
+            line-height: 1.4;
+        }
+        .conflict-action-button:hover:not(:disabled) {
+            background: var(--vscode-button-secondaryHoverBackground, #444);
+        }
+        .conflict-action-button:disabled {
+            opacity: 0.3;
+            cursor: default;
+        }
+        .conflict-segment-handled {
+            opacity: 0.35;
+            position: relative;
+        }
+        .conflict-segment-handled .conflict-action-button {
+            display: none;
+        }
+        .handled-label {
+            font-size: 0.7em;
+            opacity: 0.6;
+            font-style: italic;
+            padding: 2px 4px;
+        }
+
         /* Loading state */
         .loading-indicator {
             display: flex;
@@ -336,6 +374,8 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             var vscode = acquireVsCodeApi();
             var monacoEditorInstance = null;
             var linguaggioId = '${linguaggioId}';
+            var statiConflitti = {};  // { index: { headGestito: bool, mergingGestito: bool } }
+            var segmentiGlobali = null;  // stored for re-rendering
 
             // US-007: Configure Monaco AMD loader
             require.config({ paths: { 'vs': '${monacoBaseUri}/vs' }});
@@ -397,6 +437,55 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 return resultLines.join('\\n');
             }
 
+            // US-008: Apply HEAD chunk content to the result column via Monaco
+            function applicaChunkHead(indiceConflitto, contenutoHead) {
+                if (!monacoEditorInstance) return;
+                var model = monacoEditorInstance.getModel();
+                var placeholder = '// [Conflitto #' + (indiceConflitto + 1) + ' -- irrisolto]';
+                var matches = model.findMatches(placeholder, false, false, true, null, false);
+
+                if (matches.length > 0) {
+                    var range = matches[0].range;
+                    monacoEditorInstance.executeEdits('applica-chunk-head', [{
+                        range: range,
+                        text: contenutoHead
+                    }]);
+                }
+
+                statiConflitti[indiceConflitto].headGestito = true;
+                marcaConflittoComeGestito('head', indiceConflitto);
+            }
+
+            // US-008: Discard HEAD chunk (mark as handled without modifying result)
+            function scartaChunkHead(indiceConflitto) {
+                statiConflitti[indiceConflitto].headGestito = true;
+                marcaConflittoComeGestito('head', indiceConflitto);
+            }
+
+            // Mark a conflict segment as visually handled in the specified column
+            function marcaConflittoComeGestito(colonna, indiceConflitto) {
+                var selectorColumn = colonna === 'head' ? '#columnHead' : '#columnMerging';
+                var segmentDiv = document.querySelector(
+                    selectorColumn + ' [data-conflict-index="' + indiceConflitto + '"]'
+                );
+                if (segmentDiv) {
+                    segmentDiv.classList.add('conflict-segment-handled');
+                    // Add handled label
+                    var handledLabel = document.createElement('div');
+                    handledLabel.className = 'handled-label';
+                    handledLabel.textContent = statiConflitti[indiceConflitto].headGestito && colonna === 'head'
+                        ? (function() {
+                            // Check if it was applied or discarded by looking at action bar presence
+                            return 'gestito';
+                          })()
+                        : 'gestito';
+                    var actionBar = segmentDiv.querySelector('.conflict-action-bar');
+                    if (actionBar) {
+                        actionBar.replaceWith(handledLabel);
+                    }
+                }
+            }
+
             function renderColonneLaterali(segmenti) {
                 var columnHead = document.getElementById('columnHead');
                 var columnMerging = document.getElementById('columnMerging');
@@ -413,7 +502,45 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                         divHead.textContent = segmento.contenuto;
                     } else {
                         divHead.className = 'code-segment conflict-segment conflict-segment-head';
-                        divHead.textContent = segmento.head;
+                        divHead.setAttribute('data-conflict-index', segmento.indice);
+
+                        // US-008: Action buttons for HEAD chunks
+                        var actionBarHead = document.createElement('div');
+                        actionBarHead.className = 'conflict-action-bar';
+
+                        var applyButtonHead = document.createElement('button');
+                        applyButtonHead.className = 'conflict-action-button';
+                        applyButtonHead.textContent = '>>';
+                        applyButtonHead.title = 'Applica chunk HEAD nella colonna Result';
+                        (function(idx, content) {
+                            applyButtonHead.addEventListener('click', function() {
+                                applicaChunkHead(idx, content);
+                            });
+                        })(segmento.indice, segmento.head);
+
+                        var discardButtonHead = document.createElement('button');
+                        discardButtonHead.className = 'conflict-action-button';
+                        discardButtonHead.textContent = 'x';
+                        discardButtonHead.title = 'Scarta chunk HEAD';
+                        (function(idx) {
+                            discardButtonHead.addEventListener('click', function() {
+                                scartaChunkHead(idx);
+                            });
+                        })(segmento.indice);
+
+                        actionBarHead.appendChild(applyButtonHead);
+                        actionBarHead.appendChild(discardButtonHead);
+                        divHead.appendChild(actionBarHead);
+
+                        // Code content below buttons
+                        var codeContent = document.createElement('div');
+                        codeContent.textContent = segmento.head;
+                        divHead.appendChild(codeContent);
+
+                        // Initialize conflict state
+                        if (!statiConflitti[segmento.indice]) {
+                            statiConflitti[segmento.indice] = { headGestito: false, mergingGestito: false };
+                        }
                     }
                     columnHead.appendChild(divHead);
 
@@ -424,7 +551,13 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                         divMerging.textContent = segmento.contenuto;
                     } else {
                         divMerging.className = 'code-segment conflict-segment conflict-segment-merging';
+                        divMerging.setAttribute('data-conflict-index', segmento.indice);
                         divMerging.textContent = segmento.merging;
+
+                        // Initialize conflict state (shared with HEAD)
+                        if (!statiConflitti[segmento.indice]) {
+                            statiConflitti[segmento.indice] = { headGestito: false, mergingGestito: false };
+                        }
                     }
                     columnMerging.appendChild(divMerging);
                 }
@@ -459,6 +592,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
 
             function inizializzaLayout(dati) {
                 var segmenti = buildSegmentsFromConflicts(dati.righe, dati.conflitti);
+                segmentiGlobali = segmenti;
                 renderColonneLaterali(segmenti);
 
                 // US-007: Initialize Monaco Editor in the result column

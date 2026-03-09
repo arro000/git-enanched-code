@@ -207,9 +207,9 @@ voglio applicare un chunk dalla colonna sinistra verso la centrale con il pulsan
 in modo da includere o escludere le modifiche HEAD in modo semplice e diretto.
 
 **Acceptance Criteria**
-- [ ] Il click su `>>` nella colonna sinistra copia il contenuto del chunk HEAD nella posizione corrispondente della colonna centrale
-- [ ] Il click su `x` nella colonna sinistra scarta il chunk HEAD (non viene incluso nella colonna centrale)
-- [ ] Dopo l'applicazione o lo scarto, il conflitto nella colonna sinistra viene marcato visivamente come gestito
+- [x] Il click su `>>` nella colonna sinistra copia il contenuto del chunk HEAD nella posizione corrispondente della colonna centrale
+- [x] Il click su `x` nella colonna sinistra scarta il chunk HEAD (non viene incluso nella colonna centrale)
+- [x] Dopo l'applicazione o lo scarto, il conflitto nella colonna sinistra viene marcato visivamente come gestito
 
 ---
 

@@ -588,3 +588,152 @@ describe('MergeEditorProvider — US-007: Monaco Editor nella colonna centrale',
         });
     });
 });
+
+describe('MergeEditorProvider — US-008: Applicazione chunk HEAD con >> e x', () => {
+    let pannelloWebview: ReturnType<typeof creaMockWebviewPanel>;
+    let documento: MockDocument;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        pannelloWebview = creaMockWebviewPanel();
+        documento = creaMockDocument();
+        mockWorkspaceState.get.mockReturnValue(undefined);
+    });
+
+    async function inizializzaEditor(): Promise<void> {
+        const provider = new (MergeEditorProvider as unknown as {
+            new (context: vscode.ExtensionContext): MergeEditorProvider;
+        })(mockContext as unknown as vscode.ExtensionContext);
+
+        await provider.resolveCustomTextEditor(
+            documento as unknown as vscode.TextDocument,
+            pannelloWebview as unknown as vscode.WebviewPanel,
+            {} as vscode.CancellationToken
+        );
+    }
+
+    describe('AC1: click su >> copia contenuto HEAD nella colonna centrale', () => {
+        it('the HTML contains the >> apply button for HEAD conflicts', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("applyButtonHead.textContent = '>>'");
+        });
+
+        it('the apply button has a descriptive title attribute', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('Applica chunk HEAD nella colonna Result');
+        });
+
+        it('the applicaChunkHead function uses Monaco executeEdits to replace placeholder', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('applicaChunkHead');
+            expect(html).toContain('executeEdits');
+            expect(html).toContain('applica-chunk-head');
+        });
+
+        it('searches for the conflict placeholder pattern in Monaco model', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('findMatches');
+            expect(html).toContain('Conflitto #');
+            expect(html).toContain('irrisolto');
+        });
+    });
+
+    describe('AC2: click su x scarta il chunk HEAD', () => {
+        it('the HTML contains the x discard button for HEAD conflicts', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("discardButtonHead.textContent = 'x'");
+        });
+
+        it('the discard button has a descriptive title attribute', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('Scarta chunk HEAD');
+        });
+
+        it('the scartaChunkHead function marks the conflict as handled without modifying Monaco', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('scartaChunkHead');
+            // Discard marks handled state
+            expect(html).toContain('headGestito = true');
+        });
+    });
+
+    describe('AC3: conflitto marcato visivamente come gestito', () => {
+        it('the CSS includes a handled style class that dims the segment', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('conflict-segment-handled');
+            expect(html).toContain('opacity: 0.35');
+        });
+
+        it('the marcaConflittoComeGestito function adds handled class to the segment', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('marcaConflittoComeGestito');
+            expect(html).toContain("classList.add('conflict-segment-handled')");
+        });
+
+        it('handled segments hide action buttons via CSS', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('.conflict-segment-handled .conflict-action-button');
+            expect(html).toContain('display: none');
+        });
+
+        it('each conflict segment has a data-conflict-index attribute for targeting', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('data-conflict-index');
+            expect(html).toContain("setAttribute('data-conflict-index'");
+        });
+    });
+
+    describe('Tracciamento dello stato dei conflitti', () => {
+        it('initializes conflict state tracking object', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('statiConflitti');
+            expect(html).toContain('headGestito: false');
+            expect(html).toContain('mergingGestito: false');
+        });
+
+        it('uses IIFE closures to capture correct conflict index in button handlers', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            // IIFE pattern for closure capture in loop
+            expect(html).toContain('(function(idx, content)');
+            expect(html).toContain('(function(idx)');
+        });
+    });
+
+    describe('Struttura dei pulsanti azione', () => {
+        it('action buttons are inside a conflict-action-bar container', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('conflict-action-bar');
+            expect(html).toContain("actionBarHead.className = 'conflict-action-bar'");
+        });
+
+        it('action bar contains apply and discard buttons in order', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            // Apply button added first, then discard
+            expect(html).toContain('actionBarHead.appendChild(applyButtonHead)');
+            expect(html).toContain('actionBarHead.appendChild(discardButtonHead)');
+        });
+
+        it('action bar is inserted before code content in the conflict segment', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('divHead.appendChild(actionBarHead)');
+            // Code content added after action bar
+            expect(html).toContain('divHead.appendChild(codeContent)');
+        });
+    });
+});
