@@ -55,6 +55,9 @@ export function activate(context: vscode.ExtensionContext): void {
     );
     context.subscriptions.push(completeMergeCommand);
 
+    // Track URIs that already have the custom merge editor open, to avoid re-triggering
+    const uriConEditorCustomAperto = new Set<string>();
+
     // TASK-001.4 — Listener: auto-open on conflict detection
     const onOpenListener = vscode.workspace.onDidOpenTextDocument(
         async (document) => {
@@ -65,11 +68,17 @@ export function activate(context: vscode.ExtensionContext): void {
                 return;
             }
             if (hasConflictMarkers(document)) {
+                const uriString = document.uri.toString();
+                if (uriConEditorCustomAperto.has(uriString)) {
+                    return;
+                }
+                uriConEditorCustomAperto.add(uriString);
                 // Open within 500ms — schedule asynchronously to avoid blocking
                 setTimeout(async () => {
                     try {
                         await openMergeEditorForDocument(document);
                     } catch (err) {
+                        uriConEditorCustomAperto.delete(uriString);
                         handleFallback(err, document.uri);
                     }
                 }, 0);
@@ -77,6 +86,48 @@ export function activate(context: vscode.ExtensionContext): void {
         }
     );
     context.subscriptions.push(onOpenListener);
+
+    // Listener: re-open custom editor when a cached document is shown again in a text editor.
+    // onDidOpenTextDocument does NOT fire for documents already in VS Code's cache,
+    // so we also listen for active editor changes to catch reopening scenarios.
+    const onActiveEditorChangeListener = vscode.window.onDidChangeActiveTextEditor(
+        async (editor) => {
+            if (!editor) {
+                return;
+            }
+            if (!configManager.isAutoMode()) {
+                return;
+            }
+            const document = editor.document;
+            if (document.uri.scheme !== 'file') {
+                return;
+            }
+            const uriString = document.uri.toString();
+            if (uriConEditorCustomAperto.has(uriString)) {
+                return;
+            }
+            if (hasConflictMarkers(document)) {
+                uriConEditorCustomAperto.add(uriString);
+                try {
+                    await openMergeEditorForDocument(document);
+                } catch (err) {
+                    uriConEditorCustomAperto.delete(uriString);
+                    handleFallback(err, document.uri);
+                }
+            }
+        }
+    );
+    context.subscriptions.push(onActiveEditorChangeListener);
+
+    // Clean up tracking when all tabs for a URI are closed
+    const onTabCloseListener = vscode.window.tabGroups.onDidChangeTabs((evento) => {
+        for (const tabChiuso of evento.closed) {
+            if (tabChiuso.input instanceof vscode.TabInputCustom) {
+                uriConEditorCustomAperto.delete(tabChiuso.input.uri.toString());
+            }
+        }
+    });
+    context.subscriptions.push(onTabCloseListener);
 
     // Handle already-open files at activation time
     for (const document of vscode.workspace.textDocuments) {
