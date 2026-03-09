@@ -12,8 +12,16 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
-  "keywords": ["git", "merge", "conflict", "diff", "editor"],
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "git",
+    "merge",
+    "conflict",
+    "diff",
+    "editor"
+  ],
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -36,7 +44,10 @@
       "properties": {
         "gitEnhanced.activationMode": {
           "type": "string",
-          "enum": ["auto", "manual"],
+          "enum": [
+            "auto",
+            "manual"
+          ],
           "default": "auto",
           "enumDescriptions": [
             "Automatically open the Git Enhanced merge editor when a merge conflict is detected",
@@ -77,13 +88,19 @@
     "compile": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e:compile": "tsc -p test/e2e/tsconfig.json",
+    "test:e2e": "npm run build && npm run test:e2e:compile && node out/test/e2e/runTests.js",
     "package": "vsce package"
   },
   "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
     "@vscode/test-electron": "^2.3.0",
     "esbuild": "^0.20.0",
+    "glob": "^13.0.6",
+    "mocha": "^11.7.5",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
   },
