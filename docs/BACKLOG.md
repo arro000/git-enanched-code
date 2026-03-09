@@ -100,9 +100,16 @@ voglio che al completamento della risoluzione il file venga salvato e `git add` 
 in modo da non dover uscire dall'editor per finalizzare l'operazione git.
 
 **Acceptance Criteria**
-- [ ] Al click su "Complete Merge" senza conflitti aperti, il file viene salvato e `git add <filepath>` viene eseguito con successo
-- [ ] L'operazione di completamento è confermata all'utente con un messaggio di successo visibile
-- [ ] In caso di errore nell'esecuzione di `git add`, l'utente riceve un messaggio di errore chiaro senza perdita del contenuto risolto
+- [x] Al click su "Complete Merge" senza conflitti aperti, il file viene salvato e `git add <filepath>` viene eseguito con successo
+- [x] L'operazione di completamento è confermata all'utente con un messaggio di successo visibile
+- [x] In caso di errore nell'esecuzione di `git add`, l'utente riceve un messaggio di errore chiaro senza perdita del contenuto risolto
+
+**Tasks**
+- [x] **TASK-003.1** — Creare `src/core/git/MergeCompletionService.ts`: verifica assenza conflict markers, salva il documento, esegue `git add` tramite `simple-git`
+- [x] **TASK-003.2** — Registrare il comando `git-enhanced.completeMerge` in `package.json` e `extension.ts`
+- [x] **TASK-003.3** — Aggiungere listener `onDidReceiveMessage` in `MergeEditorProvider.ts` per il messaggio `completaMerge` dal webview
+- [x] **TASK-003.4** — Aggiungere pulsante "Complete Merge" nel webview HTML placeholder
+- [x] **TASK-003.5** — Scrivere test unitari `test/unit/core/git/MergeCompletionService.test.ts` (7 test: conflitti presenti, workspace mancante, successo, errore save, errore git add, ordine operazioni, nessuna modifica con conflitti)
 
 ---
 
@@ -116,9 +123,16 @@ voglio che se l'estensione fallisce per qualsiasi ragione venga attivato un fall
 in modo da non essere mai bloccato nel mio workflow anche quando Git Enhanced ha un problema.
 
 **Acceptance Criteria**
-- [ ] Se l'estensione genera un errore non gestito durante l'apertura, VS Code apre automaticamente il suo editor nativo di merge
-- [ ] Il file originale con conflict markers non viene modificato in nessun caso durante un fallback
-- [ ] L'utente riceve una notifica che indica che il fallback è avvenuto e il motivo (se disponibile)
+- [x] Se l'estensione genera un errore non gestito durante l'apertura, VS Code apre automaticamente il suo editor nativo di merge
+- [x] Il file originale con conflict markers non viene modificato in nessun caso durante un fallback
+- [x] L'utente riceve una notifica che indica che il fallback è avvenuto e il motivo (se disponibile)
+
+**Tasks**
+- [x] **TASK-004.1** — Creare `src/core/git/FallbackService.ts`: apre il file nell'editor nativo con fallback a `showTextDocument`, notifica l'utente con il motivo
+- [x] **TASK-004.2** — Integrare `FallbackService` in `extension.ts` (`handleFallback`) con passaggio della URI del documento
+- [x] **TASK-004.3** — Wrappare `resolveCustomTextEditor` e `onDidReceiveMessage` in `MergeEditorProvider.ts` con try/catch + fallback
+- [x] **TASK-004.4** — Aggiungere Content Security Policy nel webview HTML e sanitizzare il fileName (prevenzione XSS)
+- [x] **TASK-004.5** — Scrivere test unitari `test/unit/core/git/FallbackService.test.ts` (7 test: warning message, apertura editor, risultato fallback, errori stringa, fallback secondario, nessuna eccezione, nessuna modifica file)
 
 ---
 
@@ -132,9 +146,15 @@ voglio che se chiudo e riapro un file durante un merge in corso lo stato della r
 in modo da non perdere il lavoro già fatto quando interrompo e riprendo una sessione di merge.
 
 **Acceptance Criteria**
-- [ ] Quando il file viene riaperto durante un merge in corso, le risoluzioni già applicate nella colonna centrale vengono ripristinate correttamente
-- [ ] I conflitti già risolti appaiono come risolti nella minimap e nel contatore
-- [ ] I conflitti ancora aperti vengono mostrati correttamente come irrisolti
+- [x] Quando il file viene riaperto durante un merge in corso, le risoluzioni già applicate nella colonna centrale vengono ripristinate correttamente
+- [x] I conflitti già risolti appaiono come risolti nella minimap e nel contatore
+- [x] I conflitti ancora aperti vengono mostrati correttamente come irrisolti
+
+**Tasks**
+- [x] **TASK-005.1** — Creare `src/core/merge/MergeSessionStateManager.ts`: interfacce `StatoRisoluzioneConflitto` e `StatoSessioneMerge`, gestione salvataggio/recupero/cancellazione stato tramite `workspaceState`, validazione hash contenuto
+- [x] **TASK-005.2** — Integrare `MergeSessionStateManager` in `MergeEditorProvider.ts`: recupero stato all'apertura, salvataggio iniziale, aggiornamento su messaggio `aggiornaStato`, cancellazione su merge completato
+- [x] **TASK-005.3** — Validare `percorsoFile` nei messaggi `aggiornaStato` dal webview (prevenzione state poisoning)
+- [x] **TASK-005.4** — Scrivere test unitari `test/unit/core/merge/MergeSessionStateManager.test.ts` (18 test: hash, stato iniziale, salvataggio/recupero, invalidazione, cancellazione, conteggio conflitti, 3 scenari AC)
 
 ---
 

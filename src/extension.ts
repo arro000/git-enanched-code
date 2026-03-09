@@ -2,8 +2,12 @@ import * as vscode from 'vscode';
 import { hasConflictMarkers } from './core/git/ConflictDetector';
 import { ConfigManager } from './config/ConfigManager';
 import { MergeEditorProvider } from './ui/MergeEditorProvider';
+import { MergeCompletionService } from './core/git/MergeCompletionService';
+import { FallbackService } from './core/git/FallbackService';
 
 const configManager = new ConfigManager();
+const mergeCompletionService = new MergeCompletionService();
+const fallbackService = new FallbackService();
 
 export function activate(context: vscode.ExtensionContext): void {
     // Register the custom editor provider
@@ -26,6 +30,31 @@ export function activate(context: vscode.ExtensionContext): void {
     );
     context.subscriptions.push(openMergeEditorCommand);
 
+    // US-003 — Command: complete merge with save and git add
+    const completeMergeCommand = vscode.commands.registerCommand(
+        'git-enhanced.completeMerge',
+        async () => {
+            const activeEditor = vscode.window.activeTextEditor;
+            if (!activeEditor) {
+                vscode.window.showWarningMessage(
+                    'Git Enhanced: No active file to complete the merge.'
+                );
+                return;
+            }
+            const risultato = await mergeCompletionService.completaMerge(activeEditor.document);
+            if (risultato.successo) {
+                vscode.window.showInformationMessage(
+                    `Git Enhanced: Merge completed successfully. File staged: ${activeEditor.document.fileName}`
+                );
+            } else {
+                vscode.window.showErrorMessage(
+                    `Git Enhanced: ${risultato.messaggioErrore}`
+                );
+            }
+        }
+    );
+    context.subscriptions.push(completeMergeCommand);
+
     // TASK-001.4 — Listener: auto-open on conflict detection
     const onOpenListener = vscode.workspace.onDidOpenTextDocument(
         async (document) => {
@@ -41,7 +70,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     try {
                         await openMergeEditorForDocument(document);
                     } catch (err) {
-                        handleFallback(err);
+                        handleFallback(err, document.uri);
                     }
                 }, 0);
             }
@@ -56,7 +85,7 @@ export function activate(context: vscode.ExtensionContext): void {
             document.uri.scheme === 'file' &&
             hasConflictMarkers(document)
         ) {
-            openMergeEditorForDocument(document).catch(handleFallback);
+            openMergeEditorForDocument(document).catch((err) => handleFallback(err, document.uri));
         }
     }
 }
@@ -71,12 +100,15 @@ async function openMergeEditorForDocument(
     );
 }
 
-function handleFallback(err: unknown): void {
-    const message = err instanceof Error ? err.message : String(err);
-    vscode.window.showWarningMessage(
-        `Git Enhanced: Failed to open merge editor (${message}). Falling back to default editor.`
-    );
-    // Fallback: VS Code will use its default editor since ours failed
+function handleFallback(err: unknown, documentUri?: vscode.Uri): void {
+    if (documentUri) {
+        fallbackService.attivaFallbackPerDocumento(documentUri, err);
+    } else {
+        const message = err instanceof Error ? err.message : String(err);
+        vscode.window.showWarningMessage(
+            `Git Enhanced: Failed to open merge editor (${message}). Falling back to default editor.`
+        );
+    }
 }
 
 export function deactivate(): void {

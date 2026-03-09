@@ -37,6 +37,11 @@
         "command": "git-enhanced.openOnboarding",
         "title": "Open Onboarding",
         "category": "Git Enhanced"
+      },
+      {
+        "command": "git-enhanced.completeMerge",
+        "title": "Complete Merge",
+        "category": "Git Enhanced"
       }
     ],
     "configuration": {
