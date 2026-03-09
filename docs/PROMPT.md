@@ -1,0 +1,1 @@
+/ralph-loop:ralph-loop Sviluppa le prossime 3 user stories in @docs/BACKLOG.md seguendo il workflow dentro @docs/WORKFLOW.md. Regola: completa 1 user story alla volta. Non lavorare e non validare le storie tutte insieme. [--max-iteration 5]
