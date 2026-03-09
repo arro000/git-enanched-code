@@ -223,9 +223,9 @@ voglio applicare un chunk dalla colonna destra verso la centrale con il pulsante
 in modo da includere o escludere le modifiche MERGING in modo semplice e diretto.
 
 **Acceptance Criteria**
-- [ ] Il click su `<<` nella colonna destra copia il contenuto del chunk MERGING nella posizione corrispondente della colonna centrale
-- [ ] Il click su `x` nella colonna destra scarta il chunk MERGING
-- [ ] Dopo l'applicazione o lo scarto, il conflitto nella colonna destra viene marcato visivamente come gestito
+- [x] Il click su `<<` nella colonna destra copia il contenuto del chunk MERGING nella posizione corrispondente della colonna centrale
+- [x] Il click su `x` nella colonna destra scarta il chunk MERGING
+- [x] Dopo l'applicazione o lo scarto, il conflitto nella colonna destra viene marcato visivamente come gestito
 
 ---
 

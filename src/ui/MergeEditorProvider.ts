@@ -462,6 +462,31 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 marcaConflittoComeGestito('head', indiceConflitto);
             }
 
+            // US-009: Apply MERGING chunk content to the result column via Monaco
+            function applicaChunkMerging(indiceConflitto, contenutoMerging) {
+                if (!monacoEditorInstance) return;
+                var model = monacoEditorInstance.getModel();
+                var placeholder = '// [Conflitto #' + (indiceConflitto + 1) + ' -- irrisolto]';
+                var matches = model.findMatches(placeholder, false, false, true, null, false);
+
+                if (matches.length > 0) {
+                    var range = matches[0].range;
+                    monacoEditorInstance.executeEdits('applica-chunk-merging', [{
+                        range: range,
+                        text: contenutoMerging
+                    }]);
+                }
+
+                statiConflitti[indiceConflitto].mergingGestito = true;
+                marcaConflittoComeGestito('merging', indiceConflitto);
+            }
+
+            // US-009: Discard MERGING chunk (mark as handled without modifying result)
+            function scartaChunkMerging(indiceConflitto) {
+                statiConflitti[indiceConflitto].mergingGestito = true;
+                marcaConflittoComeGestito('merging', indiceConflitto);
+            }
+
             // Mark a conflict segment as visually handled in the specified column
             function marcaConflittoComeGestito(colonna, indiceConflitto) {
                 var selectorColumn = colonna === 'head' ? '#columnHead' : '#columnMerging';
@@ -552,7 +577,39 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                     } else {
                         divMerging.className = 'code-segment conflict-segment conflict-segment-merging';
                         divMerging.setAttribute('data-conflict-index', segmento.indice);
-                        divMerging.textContent = segmento.merging;
+
+                        // US-009: Action buttons for MERGING chunks
+                        var actionBarMerging = document.createElement('div');
+                        actionBarMerging.className = 'conflict-action-bar';
+
+                        var applyButtonMerging = document.createElement('button');
+                        applyButtonMerging.className = 'conflict-action-button';
+                        applyButtonMerging.textContent = '<<';
+                        applyButtonMerging.title = 'Applica chunk MERGING nella colonna Result';
+                        (function(idx, content) {
+                            applyButtonMerging.addEventListener('click', function() {
+                                applicaChunkMerging(idx, content);
+                            });
+                        })(segmento.indice, segmento.merging);
+
+                        var discardButtonMerging = document.createElement('button');
+                        discardButtonMerging.className = 'conflict-action-button';
+                        discardButtonMerging.textContent = 'x';
+                        discardButtonMerging.title = 'Scarta chunk MERGING';
+                        (function(idx) {
+                            discardButtonMerging.addEventListener('click', function() {
+                                scartaChunkMerging(idx);
+                            });
+                        })(segmento.indice);
+
+                        actionBarMerging.appendChild(applyButtonMerging);
+                        actionBarMerging.appendChild(discardButtonMerging);
+                        divMerging.appendChild(actionBarMerging);
+
+                        // Code content below buttons
+                        var codeContentMerging = document.createElement('div');
+                        codeContentMerging.textContent = segmento.merging;
+                        divMerging.appendChild(codeContentMerging);
 
                         // Initialize conflict state (shared with HEAD)
                         if (!statiConflitti[segmento.indice]) {

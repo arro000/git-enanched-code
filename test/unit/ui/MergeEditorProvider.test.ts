@@ -737,3 +737,139 @@ describe('MergeEditorProvider — US-008: Applicazione chunk HEAD con >> e x', (
         });
     });
 });
+
+describe('MergeEditorProvider — US-009: Applicazione chunk MERGING con << e x', () => {
+    let pannelloWebview: ReturnType<typeof creaMockWebviewPanel>;
+    let documento: MockDocument;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        pannelloWebview = creaMockWebviewPanel();
+        documento = creaMockDocument();
+        mockWorkspaceState.get.mockReturnValue(undefined);
+    });
+
+    async function inizializzaEditor(): Promise<void> {
+        const provider = new (MergeEditorProvider as unknown as {
+            new (context: vscode.ExtensionContext): MergeEditorProvider;
+        })(mockContext as unknown as vscode.ExtensionContext);
+
+        await provider.resolveCustomTextEditor(
+            documento as unknown as vscode.TextDocument,
+            pannelloWebview as unknown as vscode.WebviewPanel,
+            {} as vscode.CancellationToken
+        );
+    }
+
+    describe('AC1: click su << copia contenuto MERGING nella colonna centrale', () => {
+        it('the HTML contains the << apply button for MERGING conflicts', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("applyButtonMerging.textContent = '<<'");
+        });
+
+        it('the apply button has a descriptive title attribute', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('Applica chunk MERGING nella colonna Result');
+        });
+
+        it('the applicaChunkMerging function uses Monaco executeEdits to replace placeholder', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('applicaChunkMerging');
+            expect(html).toContain('executeEdits');
+            expect(html).toContain('applica-chunk-merging');
+        });
+
+        it('searches for the conflict placeholder pattern in Monaco model', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('findMatches');
+            expect(html).toContain('Conflitto #');
+            expect(html).toContain('irrisolto');
+        });
+    });
+
+    describe('AC2: click su x scarta il chunk MERGING', () => {
+        it('the HTML contains the x discard button for MERGING conflicts', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("discardButtonMerging.textContent = 'x'");
+        });
+
+        it('the discard button has a descriptive title attribute', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('Scarta chunk MERGING');
+        });
+
+        it('the scartaChunkMerging function marks the conflict as handled without modifying Monaco', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('scartaChunkMerging');
+            // Discard marks handled state
+            expect(html).toContain('mergingGestito = true');
+        });
+    });
+
+    describe('AC3: conflitto nella colonna destra marcato visivamente come gestito', () => {
+        it('the CSS handled style applies to MERGING column segments', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('conflict-segment-handled');
+            expect(html).toContain('opacity: 0.35');
+        });
+
+        it('marcaConflittoComeGestito supports the merging column selector', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("'#columnMerging'");
+            expect(html).toContain("classList.add('conflict-segment-handled')");
+        });
+
+        it('handled segments hide action buttons via CSS for both columns', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('.conflict-segment-handled .conflict-action-button');
+            expect(html).toContain('display: none');
+        });
+
+        it('MERGING conflict segments have data-conflict-index attribute', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('data-conflict-index');
+        });
+    });
+
+    describe('Struttura dei pulsanti azione MERGING', () => {
+        it('MERGING action buttons are inside a conflict-action-bar container', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("actionBarMerging.className = 'conflict-action-bar'");
+        });
+
+        it('MERGING action bar contains apply and discard buttons in order', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('actionBarMerging.appendChild(applyButtonMerging)');
+            expect(html).toContain('actionBarMerging.appendChild(discardButtonMerging)');
+        });
+
+        it('MERGING action bar is inserted before code content in the conflict segment', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('divMerging.appendChild(actionBarMerging)');
+            expect(html).toContain('divMerging.appendChild(codeContentMerging)');
+        });
+
+        it('uses IIFE closures to capture correct conflict index in MERGING button handlers', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            // IIFE pattern for merging apply button closure
+            expect(html).toContain('applicaChunkMerging(idx, content)');
+            // IIFE pattern for merging discard button closure
+            expect(html).toContain('scartaChunkMerging(idx)');
+        });
+    });
+});
