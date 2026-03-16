@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Git Enhanced — Merge Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* VS Code Dark+ core palette */
+      --editor-bg:       #1e1e1e;
+      --sidebar-bg:      #252526;
+      --tab-bar-bg:      #252526;
+      --tab-inactive-bg: #2d2d2d;
+      --tab-active-bg:   #1e1e1e;
+      --tab-active-top:  #007acc;
+      --panel-border:    rgba(128,128,128,0.35);
+      --border:          #3c3c3c;
+      --border-light:    #454545;
+
+      /* Text */
+      --foreground:      #d4d4d4;
+      --foreground-dim:  #cccccc;
+      --foreground-muted:#858585;
+      --foreground-faint:#3c3c3c;
+
+      /* VS Code status bar */
+      --statusbar-bg:    #007acc;
+      --statusbar-fg:    #ffffff;
+
+      /* Buttons */
+      --btn-primary-bg:  #0e639c;
+      --btn-primary-hover: #1177bb;
+      --btn-secondary-border: #6fc3df;
+
+      /* HEAD — amber (VS Code current change) */
+      --head:          #e6931a;
+      --head-bg:       rgba(230, 147, 26, 0.15);
+      --head-border:   rgba(230, 147, 26, 0.5);
+      --head-dim:      rgba(230, 147, 26, 0.6);
+
+      /* RESULT — teal */
+      --result:        #4ec9b0;
+      --result-bg:     rgba(78, 201, 176, 0.1);
+      --result-border: rgba(78, 201, 176, 0.4);
+      --result-dim:    rgba(78, 201, 176, 0.6);
+
+      /* MERGING — blue (VS Code incoming change) */
+      --merging:       #4aabf7;
+      --merging-bg:    rgba(74, 171, 247, 0.15);
+      --merging-border:rgba(74, 171, 247, 0.5);
+      --merging-dim:   rgba(74, 171, 247, 0.6);
+
+      /* Conflict state */
+      --conflict-red:  #f14c4c;
+      --conflict-bg:   rgba(241, 76, 76, 0.1);
+
+      /* VS Code Dark+ syntax */
+      --syn-keyword:   #569cd6;
+      --syn-string:    #ce9178;
+      --syn-type:      #4ec9b0;
+      --syn-fn:        #dcdcaa;
+      --syn-comment:   #6a9955;
+      --syn-number:    #b5cea8;
+      --syn-op:        #d4d4d4;
+      --syn-id:        #9cdcfe;
+
+      /* UI font */
+      --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      --font-mono: 'JetBrains Mono', Consolas, 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--editor-bg);
+      color: var(--foreground);
+      font-family: var(--font-ui);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    /* ─── VS CODE TAB BAR ─── */
+    .vscode-tabs {
+      display: flex;
+      align-items: stretch;
+      height: 35px;
+      background: var(--tab-bar-bg);
+      border-bottom: 1px solid var(--panel-border);
+      flex-shrink: 0;
+    }
+    .vscode-tab {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 18px;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      color: var(--foreground-muted);
+      background: var(--tab-inactive-bg);
+      border-right: 1px solid var(--panel-border);
+      cursor: pointer;
+      white-space: nowrap;
+      position: relative;
+      user-select: none;
+    }
+    .vscode-tab.active {
+      background: var(--tab-active-bg);
+      color: var(--foreground);
+    }
+    .vscode-tab.active::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: var(--tab-active-top);
+    }
+    .tab-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      border: 1px solid var(--foreground-muted);
+      flex-shrink: 0;
+    }
+    .tab-dot.modified { background: var(--foreground-muted); }
+    .tab-dot.active-modified {
+      border-color: transparent;
+      background: var(--foreground-dim);
+    }
+
+    /* ─── BREADCRUMB / TOOLBAR ─── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 0 8px;
+      height: 22px;
+      background: var(--editor-bg);
+      border-bottom: 1px solid var(--panel-border);
+      flex-shrink: 0;
+    }
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--foreground-muted);
+      gap: 0;
+    }
+    .breadcrumb-sep {
+      margin: 0 4px;
+      opacity: 0.5;
+    }
+    .breadcrumb-active { color: var(--foreground-dim); }
+
+    /* ─── MERGE EDITOR TOOLBAR ─── */
+    .merge-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--sidebar-bg);
+      border-bottom: 1px solid var(--panel-border);
+      flex-shrink: 0;
+    }
+    .merge-toolbar-title {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--foreground-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .merge-sep { width: 1px; height: 16px; background: var(--border-light); flex-shrink: 0; margin: 0 4px; }
+    .spacer { flex: 1; }
+
+    .conflict-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--foreground-muted);
+    }
+    .conflict-count {
+      color: var(--conflict-red);
+      font-weight: 600;
+    }
+    .pulse-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--conflict-red);
+      animation: blink 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .vsc-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      border-radius: 2px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.1s;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .vsc-btn-primary {
+      background: var(--btn-primary-bg);
+      color: #ffffff;
+      border-color: transparent;
+    }
+    .vsc-btn-primary:hover { background: var(--btn-primary-hover); }
+    .vsc-btn-secondary {
+      background: transparent;
+      color: var(--foreground-dim);
+      border-color: var(--border-light);
+    }
+    .vsc-btn-secondary:hover { background: rgba(255,255,255,0.06); }
+
+    /* ─── COLUMN HEADERS ─── */
+    .col-headers {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 14px;
+      background: var(--sidebar-bg);
+      border-bottom: 1px solid var(--panel-border);
+      flex-shrink: 0;
+    }
+    .col-hdr {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border-right: 1px solid var(--panel-border);
+    }
+    .col-hdr-bar {
+      width: 2px; height: 14px;
+      border-radius: 1px;
+      flex-shrink: 0;
+    }
+    .col-hdr.head .col-hdr-bar   { background: var(--head); }
+    .col-hdr.result .col-hdr-bar { background: var(--result); }
+    .col-hdr.merging .col-hdr-bar{ background: var(--merging); }
+
+    .col-hdr-name {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--foreground-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .col-hdr.head .col-hdr-name   { color: var(--head); }
+    .col-hdr.result .col-hdr-name { color: var(--result); }
+    .col-hdr.merging .col-hdr-name{ color: var(--merging); }
+
+    .col-hdr-branch {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--foreground-muted);
+      padding: 1px 5px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+    }
+    .col-hdr-tag {
+      margin-left: auto;
+      font-family: var(--font-ui);
+      font-size: 10px;
+      color: var(--foreground-faint);
+      letter-spacing: 0.3px;
+    }
+
+    /* ─── EDITOR GRID ─── */
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 14px;
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .col {
+      overflow-y: auto;
+      border-right: 1px solid var(--panel-border);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.5;
+      background: var(--editor-bg);
+    }
+    .col::-webkit-scrollbar { width: 10px; }
+    .col::-webkit-scrollbar-track { background: transparent; }
+    .col::-webkit-scrollbar-thumb { background: rgba(121,121,121,0.4); border-radius: 0; }
+    .col::-webkit-scrollbar-thumb:hover { background: rgba(100,100,100,0.7); }
+
+    /* Code lines */
+    .line {
+      display: flex;
+      align-items: flex-start;
+      min-height: 19.5px;
+    }
+    .ln {
+      width: 40px;
+      text-align: right;
+      padding: 0 10px 0 6px;
+      color: var(--foreground-muted);
+      flex-shrink: 0;
+      user-select: none;
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    .lc {
+      flex: 1;
+      white-space: pre;
+      color: var(--foreground);
+      padding-right: 14px;
+    }
+
+    /* ─── CONFLICT ZONES ─── */
+    .cz.head-cz {
+      background: var(--head-bg);
+      border-left: 3px solid var(--head-border);
+    }
+    .cz.merging-cz {
+      background: var(--merging-bg);
+      border-left: 3px solid var(--merging-border);
+    }
+    .cz.result-pending {
+      background: var(--conflict-bg);
+      border-left: 3px solid rgba(241, 76, 76, 0.4);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 39px;
+      padding: 8px 8px 8px 46px;
+      gap: 3px;
+    }
+    .cz.result-resolved {
+      background: var(--result-bg);
+      border-left: 3px solid var(--result-border);
+    }
+
+    .pending-label {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--foreground-muted);
+      font-style: italic;
+    }
+
+    /* Conflict action bar */
+    .ca {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px 2px 44px;
+      background: rgba(0,0,0,0.2);
+      border-bottom: 1px solid var(--panel-border);
+      border-top: 1px solid var(--panel-border);
+    }
+    .ca-lbl {
+      font-family: var(--font-ui);
+      font-size: 10.5px;
+      color: var(--foreground-muted);
+      margin-right: 4px;
+    }
+    .ca-resolved {
+      font-family: var(--font-ui);
+      font-size: 10.5px;
+      color: var(--result);
+    }
+
+    .ab {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 1px 7px;
+      border-radius: 2px;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.1s;
+      line-height: 1.4;
+    }
+    .ab.ah {
+      color: var(--head);
+      border-color: rgba(230, 147, 26, 0.4);
+      background: rgba(230, 147, 26, 0.08);
+    }
+    .ab.ah:hover { background: rgba(230, 147, 26, 0.18); }
+    .ab.am {
+      color: var(--merging);
+      border-color: rgba(74, 171, 247, 0.4);
+      background: rgba(74, 171, 247, 0.08);
+    }
+    .ab.am:hover { background: rgba(74, 171, 247, 0.18); }
+    .ab.dx {
+      color: var(--foreground-muted);
+      border-color: var(--border);
+      background: transparent;
+    }
+    .ab.dx:hover { background: rgba(255,255,255,0.06); color: var(--foreground-dim); }
+
+    /* Syntax tokens */
+    .kw  { color: var(--syn-keyword); }
+    .st  { color: var(--syn-string); }
+    .ty  { color: var(--syn-type); }
+    .fn  { color: var(--syn-fn); }
+    .cm  { color: var(--syn-comment); font-style: italic; }
+    .nm  { color: var(--syn-number); }
+    .op  { color: var(--syn-op); }
+    .id  { color: var(--syn-id); }
+
+    /* Auto-resolved label */
+    .result-auto-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px 2px 44px;
+      background: rgba(0,0,0,0.15);
+      border-bottom: 1px solid rgba(78, 201, 176, 0.2);
+      font-family: var(--font-ui);
+      font-size: 10.5px;
+      color: var(--result);
+    }
+
+    /* ─── MINIMAP ─── */
+    .minimap {
+      background: var(--editor-bg);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      gap: 0;
+      overflow: hidden;
+      border-left: 1px solid var(--panel-border);
+    }
+    .mm-seg { width: 100%; flex-shrink: 0; }
+    .mm-cursor {
+      width: 100%;
+      height: 20px;
+      background: rgba(255,255,255,0.07);
+    }
+
+    /* ─── STATUS BAR ─── */
+    .statusbar {
+      display: flex;
+      align-items: center;
+      height: 22px;
+      background: var(--statusbar-bg);
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--statusbar-fg);
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .sb-item {
+      display: flex; align-items: center; gap: 4px;
+      padding: 0 10px; height: 100%;
+      cursor: pointer;
+    }
+    .sb-item:hover { background: rgba(255,255,255,0.12); }
+    .sb-item.sb-warn { background: #cc6633; }
+    .sb-item.sb-warn:hover { background: #d97540; }
+    .sb-spacer { flex: 1; }
+    .sb-icon { font-size: 13px; }
+    .kbd {
+      padding: 0 4px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+    }
+
+    /* cursor blink in result col */
+    .cursor {
+      display: inline-block;
+      width: 1px; height: 13px;
+      background: var(--foreground);
+      margin-left: 1px;
+      vertical-align: text-bottom;
+      animation: cursorBlink 1.1s step-end infinite;
+    }
+    @keyframes cursorBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- VS Code tab bar -->
+  <div class="vscode-tabs">
+    <div class="vscode-tab">
+      <span class="tab-dot"></span>
+      ConflictParser.ts
+    </div>
+    <div class="vscode-tab active">
+      <span class="tab-dot active-modified"></span>
+      ConflictResolver.ts
+    </div>
+    <div class="vscode-tab">
+      <span class="tab-dot"></span>
+      MergeOrchestrator.ts
+    </div>
+  </div>
+
+  <!-- Breadcrumb -->
+  <div class="toolbar">
+    <div class="breadcrumb">
+      <span>src</span>
+      <span class="breadcrumb-sep">›</span>
+      <span>core</span>
+      <span class="breadcrumb-sep">›</span>
+      <span>merge</span>
+      <span class="breadcrumb-sep">›</span>
+      <span class="breadcrumb-active">ConflictResolver.ts</span>
+    </div>
+  </div>
+
+  <!-- Merge editor toolbar -->
+  <div class="merge-toolbar">
+    <span class="merge-toolbar-title">Git Enhanced — Merge Editor</span>
+    <div class="merge-sep"></div>
+    <div class="conflict-badge">
+      <span class="pulse-dot"></span>
+      <span class="conflict-count">3</span>
+      <span>conflicts remaining</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="vsc-btn vsc-btn-secondary">✦ Auto-resolve (2 ready)</button>
+    <button class="vsc-btn vsc-btn-primary">✓ Complete Merge</button>
+  </div>
+
+  <!-- Column headers -->
+  <div class="col-headers">
+    <div class="col-hdr head">
+      <div class="col-hdr-bar"></div>
+      <span class="col-hdr-name">Current (HEAD)</span>
+      <span class="col-hdr-branch">main</span>
+      <span class="col-hdr-tag">read-only</span>
+    </div>
+    <div class="col-hdr result">
+      <div class="col-hdr-bar"></div>
+      <span class="col-hdr-name">Result</span>
+      <span class="col-hdr-tag">editable</span>
+    </div>
+    <div class="col-hdr merging">
+      <div class="col-hdr-bar"></div>
+      <span class="col-hdr-name">Incoming (MERGING)</span>
+      <span class="col-hdr-branch">feature/auth-v2</span>
+      <span class="col-hdr-tag">read-only</span>
+    </div>
+    <div></div>
+  </div>
+
+  <!-- Editor grid: 3 columns + minimap -->
+  <div class="editor-grid">
+
+    <!-- ══ HEAD COLUMN ══ -->
+    <div class="col">
+      <div class="line"><span class="ln">1</span><span class="lc"><span class="cm">// src/core/merge/ConflictResolver.ts</span></span></div>
+      <div class="line"><span class="ln">2</span><span class="lc"><span class="kw">import</span> <span class="op">{</span> <span class="ty">Conflict</span><span class="op">,</span> <span class="ty">Resolution</span> <span class="op">}</span> <span class="kw">from</span> <span class="st">'./types'</span><span class="op">;</span></span></div>
+      <div class="line"><span class="ln">3</span><span class="lc"><span class="kw">import</span> <span class="op">{</span> <span class="fn">parseConflictMarkers</span> <span class="op">}</span> <span class="kw">from</span> <span class="st">'./parser'</span><span class="op">;</span></span></div>
+
+      <div class="cz head-cz">
+        <div class="ca">
+          <span class="ca-lbl">conflict 1 of 3</span>
+          <button class="ab ah">&gt;&gt; Accept Current</button>
+          <button class="ab dx">✕ Ignore</button>
+        </div>
+        <div class="line"><span class="ln">4</span><span class="lc"><span class="kw">import</span> <span class="op">{</span> <span class="ty">Logger</span> <span class="op">}</span> <span class="kw">from</span> <span class="st">'../utils/logger'</span><span class="op">;</span></span></div>
+      </div>
+
+      <div class="line"><span class="ln">5</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">6</span><span class="lc"><span class="kw">export class</span> <span class="ty">ConflictResolver</span> <span class="op">{</span></span></div>
+
+      <div class="cz head-cz" style="opacity: 0.45;">
+        <div class="ca">
+          <span class="ca-lbl">conflict 2 of 3</span>
+          <span class="ca-resolved">✓ auto-resolved</span>
+        </div>
+        <div class="line"><span class="ln">7</span><span class="lc">  <span class="kw">private readonly</span> <span class="id">maxRetries</span> <span class="op">=</span> <span class="nm">3</span><span class="op">;</span></span></div>
+      </div>
+
+      <div class="line"><span class="ln">8</span><span class="lc">  <span class="kw">private readonly</span> <span class="id">timeout</span> <span class="op">=</span> <span class="nm">5000</span><span class="op">;</span></span></div>
+      <div class="line"><span class="ln">9</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">10</span><span class="lc">  <span class="fn">constructor</span><span class="op">(</span><span class="kw">private</span> <span class="id">logger</span><span class="op">:</span> <span class="ty">Logger</span><span class="op">)</span> <span class="op">{}</span></span></div>
+      <div class="line"><span class="ln">11</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">12</span><span class="lc">  <span class="kw">async</span> <span class="fn">resolve</span><span class="op">(</span><span class="id">conflict</span><span class="op">:</span> <span class="ty">Conflict</span><span class="op">):</span> <span class="ty">Promise</span><span class="op">&lt;</span><span class="ty">Resolution</span><span class="op">&gt;</span> <span class="op">{</span></span></div>
+      <div class="line"><span class="ln">13</span><span class="lc">    <span class="kw">const</span> <span class="id">chunks</span> <span class="op">=</span> <span class="fn">parseConflictMarkers</span><span class="op">(</span><span class="id">conflict</span><span class="op">.</span><span class="id">content</span><span class="op">);</span></span></div>
+
+      <div class="cz head-cz">
+        <div class="ca">
+          <span class="ca-lbl">conflict 3 of 3</span>
+          <button class="ab ah">&gt;&gt; Accept Current</button>
+          <button class="ab dx">✕ Ignore</button>
+        </div>
+        <div class="line"><span class="ln">14</span><span class="lc">    <span class="kw">return</span> <span class="kw">this</span><span class="op">.</span><span class="fn">applyDiff3</span><span class="op">(</span><span class="id">chunks</span><span class="op">);</span></span></div>
+      </div>
+
+      <div class="line"><span class="ln">15</span><span class="lc">  <span class="op">}</span></span></div>
+      <div class="line"><span class="ln">16</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">17</span><span class="lc">  <span class="kw">private</span> <span class="fn">applyDiff3</span><span class="op">(</span><span class="id">chunks</span><span class="op">:</span> <span class="ty">string</span><span class="op">[])</span><span class="op">:</span> <span class="ty">Resolution</span> <span class="op">{</span></span></div>
+      <div class="line"><span class="ln">18</span><span class="lc">    <span class="kw">return</span> <span class="id">chunks</span><span class="op">.</span><span class="fn">reduce</span><span class="op">((</span><span class="id">acc</span><span class="op">,</span> <span class="id">c</span><span class="op">)</span> <span class="op">=&gt;</span> <span class="op">({</span> <span class="op">...</span><span class="id">acc</span><span class="op">,</span> <span class="id">resolved</span><span class="op">:</span> <span class="kw">true</span> <span class="op">}),</span> <span class="op">{}</span> <span class="kw">as</span> <span class="ty">Resolution</span><span class="op">);</span></span></div>
+      <div class="line"><span class="ln">19</span><span class="lc">  <span class="op">}</span></span></div>
+      <div class="line"><span class="ln">20</span><span class="lc"><span class="op">}</span></span></div>
+    </div>
+
+    <!-- ══ RESULT COLUMN ══ -->
+    <div class="col" style="background: #1e1e1e;">
+      <div class="line"><span class="ln">1</span><span class="lc"><span class="cm">// src/core/merge/ConflictResolver.ts</span></span></div>
+      <div class="line"><span class="ln">2</span><span class="lc"><span class="kw">import</span> <span class="op">{</span> <span class="ty">Conflict</span><span class="op">,</span> <span class="ty">Resolution</span> <span class="op">}</span> <span class="kw">from</span> <span class="st">'./types'</span><span class="op">;</span></span></div>
+      <div class="line"><span class="ln">3</span><span class="lc"><span class="kw">import</span> <span class="op">{</span> <span class="fn">parseConflictMarkers</span> <span class="op">}</span> <span class="kw">from</span> <span class="st">'./parser'</span><span class="op">;</span></span></div>
+
+      <div class="cz result-pending">
+        <span class="pending-label">Awaiting resolution…</span>
+      </div>
+
+      <div class="line"><span class="ln">5</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">6</span><span class="lc"><span class="kw">export class</span> <span class="ty">ConflictResolver</span> <span class="op">{</span></span></div>
+
+      <div class="cz result-resolved">
+        <div class="result-auto-header">✓ Auto-resolved via diff3 — both branches consistent</div>
+        <div class="line"><span class="ln">7</span><span class="lc">  <span class="kw">private readonly</span> <span class="id">maxRetries</span> <span class="op">=</span> <span class="nm">5</span><span class="op">;</span></span></div>
+      </div>
+
+      <div class="line"><span class="ln">8</span><span class="lc">  <span class="kw">private readonly</span> <span class="id">timeout</span> <span class="op">=</span> <span class="nm">5000</span><span class="op">;</span></span></div>
+      <div class="line"><span class="ln">9</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">10</span><span class="lc">  <span class="fn">constructor</span><span class="op">(</span><span class="kw">private</span> <span class="id">logger</span><span class="op">:</span> <span class="ty">Logger</span><span class="op">)</span> <span class="op">{}</span></span></div>
+      <div class="line"><span class="ln">11</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">12</span><span class="lc">  <span class="kw">async</span> <span class="fn">resolve</span><span class="op">(</span><span class="id">conflict</span><span class="op">:</span> <span class="ty">Conflict</span><span class="op">):</span> <span class="ty">Promise</span><span class="op">&lt;</span><span class="ty">Resolution</span><span class="op">&gt;</span> <span class="op">{</span></span></div>
+      <div class="line"><span class="ln">13</span><span class="lc">    <span class="kw">const</span> <span class="id">chunks</span> <span class="op">=</span> <span class="fn">parseConflictMarkers</span><span class="op">(</span><span class="id">conflict</span><span class="op">.</span><span class="id">content</span><span class="op">);</span></span></div>
+
+      <div class="cz result-pending">
+        <span class="pending-label">Awaiting resolution…</span>
+      </div>
+
+      <div class="line"><span class="ln">15</span><span class="lc">  <span class="op">}</span></span></div>
+      <div class="line"><span class="ln">16</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">17</span><span class="lc">  <span class="kw">private</span> <span class="fn">applyDiff3</span><span class="op">(</span><span class="id">chunks</span><span class="op">:</span> <span class="ty">string</span><span class="op">[])</span><span class="op">:</span> <span class="ty">Resolution</span> <span class="op">{</span></span></div>
+      <div class="line"><span class="ln">18</span><span class="lc">    <span class="cm">// editable — cursor active</span><span class="cursor"></span></span></div>
+      <div class="line"><span class="ln">19</span><span class="lc">  <span class="op">}</span></span></div>
+      <div class="line"><span class="ln">20</span><span class="lc"><span class="op">}</span></span></div>
+    </div>
+
+    <!-- ══ MERGING COLUMN ══ -->
+    <div class="col">
+      <div class="line"><span class="ln">1</span><span class="lc"><span class="cm">// src/core/merge/ConflictResolver.ts</span></span></div>
+      <div class="line"><span class="ln">2</span><span class="lc"><span class="kw">import</span> <span class="op">{</span> <span class="ty">Conflict</span><span class="op">,</span> <span class="ty">Resolution</span> <span class="op">}</span> <span class="kw">from</span> <span class="st">'./types'</span><span class="op">;</span></span></div>
+      <div class="line"><span class="ln">3</span><span class="lc"><span class="kw">import</span> <span class="op">{</span> <span class="fn">parseConflictMarkers</span> <span class="op">}</span> <span class="kw">from</span> <span class="st">'./parser'</span><span class="op">;</span></span></div>
+
+      <div class="cz merging-cz">
+        <div class="ca">
+          <span class="ca-lbl">conflict 1 of 3</span>
+          <button class="ab am">&lt;&lt; Accept Incoming</button>
+          <button class="ab dx">✕ Ignore</button>
+        </div>
+        <div class="line"><span class="ln">4</span><span class="lc"><span class="kw">import</span> <span class="op">{</span> <span class="ty">Logger</span><span class="op">,</span> <span class="ty">ErrorTracker</span> <span class="op">}</span> <span class="kw">from</span> <span class="st">'../utils/logger'</span><span class="op">;</span></span></div>
+      </div>
+
+      <div class="line"><span class="ln">5</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">6</span><span class="lc"><span class="kw">export class</span> <span class="ty">ConflictResolver</span> <span class="op">{</span></span></div>
+
+      <div class="cz merging-cz" style="opacity: 0.45;">
+        <div class="ca">
+          <span class="ca-lbl">conflict 2 of 3</span>
+          <span class="ca-resolved">✓ auto-resolved</span>
+        </div>
+        <div class="line"><span class="ln">7</span><span class="lc">  <span class="kw">private readonly</span> <span class="id">maxRetries</span> <span class="op">=</span> <span class="nm">5</span><span class="op">;</span></span></div>
+      </div>
+
+      <div class="line"><span class="ln">8</span><span class="lc">  <span class="kw">private readonly</span> <span class="id">timeout</span> <span class="op">=</span> <span class="nm">5000</span><span class="op">;</span></span></div>
+      <div class="line"><span class="ln">9</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">10</span><span class="lc">  <span class="fn">constructor</span><span class="op">(</span><span class="kw">private</span> <span class="id">logger</span><span class="op">:</span> <span class="ty">Logger</span><span class="op">)</span> <span class="op">{}</span></span></div>
+      <div class="line"><span class="ln">11</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">12</span><span class="lc">  <span class="kw">async</span> <span class="fn">resolve</span><span class="op">(</span><span class="id">conflict</span><span class="op">:</span> <span class="ty">Conflict</span><span class="op">):</span> <span class="ty">Promise</span><span class="op">&lt;</span><span class="ty">Resolution</span><span class="op">&gt;</span> <span class="op">{</span></span></div>
+      <div class="line"><span class="ln">13</span><span class="lc">    <span class="kw">const</span> <span class="id">chunks</span> <span class="op">=</span> <span class="fn">parseConflictMarkers</span><span class="op">(</span><span class="id">conflict</span><span class="op">.</span><span class="id">content</span><span class="op">);</span></span></div>
+
+      <div class="cz merging-cz">
+        <div class="ca">
+          <span class="ca-lbl">conflict 3 of 3</span>
+          <button class="ab am">&lt;&lt; Accept Incoming</button>
+          <button class="ab dx">✕ Ignore</button>
+        </div>
+        <div class="line"><span class="ln">14</span><span class="lc">    <span class="kw">return</span> <span class="kw">this</span><span class="op">.</span><span class="fn">applyAstMerge</span><span class="op">(</span><span class="id">chunks</span><span class="op">);</span></span></div>
+      </div>
+
+      <div class="line"><span class="ln">15</span><span class="lc">  <span class="op">}</span></span></div>
+      <div class="line"><span class="ln">16</span><span class="lc"></span></div>
+      <div class="line"><span class="ln">17</span><span class="lc">  <span class="kw">private</span> <span class="fn">applyAstMerge</span><span class="op">(</span><span class="id">chunks</span><span class="op">:</span> <span class="ty">string</span><span class="op">[])</span><span class="op">:</span> <span class="ty">Resolution</span> <span class="op">{</span></span></div>
+      <div class="line"><span class="ln">18</span><span class="lc">    <span class="kw">const</span> <span class="id">ast</span> <span class="op">=</span> <span class="fn">parseAST</span><span class="op">(</span><span class="id">chunks</span><span class="op">[</span><span class="nm">0</span><span class="op">]);</span></span></div>
+      <div class="line"><span class="ln">19</span><span class="lc">    <span class="kw">return</span> <span class="op">{</span> <span class="id">resolved</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="id">ast</span><span class="op">,</span> <span class="id">confidence</span><span class="op">:</span> <span class="nm">0.95</span> <span class="op">};</span></span></div>
+      <div class="line"><span class="ln">20</span><span class="lc">  <span class="op">}</span></span></div>
+      <div class="line"><span class="ln">21</span><span class="lc"><span class="op">}</span></span></div>
+    </div>
+
+    <!-- ══ MINIMAP ══ -->
+    <div class="minimap">
+      <div class="mm-seg" style="height:20px; background: rgba(78,201,176,0.3);"></div>
+      <div class="mm-seg" style="height:4px; background: rgba(241,76,76,0.8);"></div>
+      <div class="mm-seg" style="height:8px; background: rgba(78,201,176,0.3);"></div>
+      <div class="mm-cursor"></div>
+      <div class="mm-seg" style="height:4px; background: rgba(78,201,176,0.5);"></div>
+      <div class="mm-seg" style="height:8px; background: rgba(78,201,176,0.3);"></div>
+      <div class="mm-seg" style="height:4px; background: rgba(241,76,76,0.8);"></div>
+      <div class="mm-seg" style="height:28px; background: rgba(78,201,176,0.3);"></div>
+    </div>
+
+  </div>
+
+  <!-- VS Code status bar -->
+  <div class="statusbar">
+    <div class="sb-item sb-warn">
+      <span class="sb-icon">⚡</span>
+      Git Enhanced
+    </div>
+    <div class="sb-item">
+      <span class="sb-icon">⎇</span>
+      main ← feature/auth-v2
+    </div>
+    <div class="sb-item" style="color: rgba(255,255,255,0.7);">
+      ⚠ 3 merge conflicts
+    </div>
+    <div class="sb-spacer"></div>
+    <div class="sb-item">
+      <kbd class="kbd">F7</kbd> Next &nbsp;
+      <kbd class="kbd">⇧F7</kbd> Prev
+    </div>
+    <div class="sb-item">TypeScript</div>
+    <div class="sb-item">UTF-8</div>
+    <div class="sb-item">Ln 18, Col 4</div>
+  </div>
+
+</body>
+</html>
