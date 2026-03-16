@@ -167,6 +167,8 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
         linguaggioId: string
     ): string {
         const fileNameSanitizzato = this.escapaHtml(fileName);
+        const baseNameSanitizzato = this.escapaHtml(fileName.split(/[\\/]/).pop() || fileName);
+        const linguaggioIdSafe = linguaggioId.replace(/[^a-zA-Z0-9+#-]/g, '');
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -175,164 +177,198 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}' ${cspSource} 'unsafe-eval'; style-src 'unsafe-inline' ${cspSource}; font-src ${cspSource}; worker-src blob:;">
     <title>Git Enhanced — Merge Editor</title>
     <style>
+        :root {
+            --editor-bg:        #1e1e1e;
+            --sidebar-bg:       #252526;
+            --panel-border:     rgba(128,128,128,0.35);
+            --border:           #3c3c3c;
+            --border-light:     #454545;
+            --foreground:       #d4d4d4;
+            --foreground-dim:   #cccccc;
+            --foreground-muted: #858585;
+            --foreground-faint: #3c3c3c;
+            --statusbar-bg:     #007acc;
+            --statusbar-fg:     #ffffff;
+            --btn-primary-bg:   #0e639c;
+            --btn-primary-hover:#1177bb;
+            --head:             #e6931a;
+            --head-bg:          rgba(230,147,26,0.15);
+            --head-border:      rgba(230,147,26,0.5);
+            --head-dim:         rgba(230,147,26,0.6);
+            --result:           #4ec9b0;
+            --result-bg:        rgba(78,201,176,0.1);
+            --result-border:    rgba(78,201,176,0.4);
+            --result-dim:       rgba(78,201,176,0.6);
+            --merging:          #4aabf7;
+            --merging-bg:       rgba(74,171,247,0.15);
+            --merging-border:   rgba(74,171,247,0.5);
+            --merging-dim:      rgba(74,171,247,0.6);
+            --conflict-red:     #f14c4c;
+            --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            --font-mono: Consolas, 'Courier New', monospace;
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: var(--vscode-font-family);
-            color: var(--vscode-foreground);
-            background-color: var(--vscode-editor-background);
+            background: var(--editor-bg);
+            color: var(--foreground);
+            font-family: var(--font-ui);
             height: 100vh;
-            overflow: hidden;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
+            font-size: 13px;
         }
 
-        /* Toolbar */
-        .toolbar {
+        /* ── Merge toolbar ── */
+        .merge-toolbar {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 8px;
             padding: 6px 12px;
-            background: var(--vscode-titleBar-activeBackground, var(--vscode-editor-background));
-            border-bottom: 1px solid var(--vscode-panel-border, #444);
+            background: var(--sidebar-bg);
+            border-bottom: 1px solid var(--panel-border);
             flex-shrink: 0;
         }
-        .toolbar-file-name {
-            font-size: 0.85em;
-            opacity: 0.8;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .complete-merge-button {
-            padding: 4px 14px;
-            font-size: 0.85em;
-            cursor: pointer;
-            background-color: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: none;
-            border-radius: 2px;
-            flex-shrink: 0;
-        }
-        .complete-merge-button:hover {
-            background-color: var(--vscode-button-hoverBackground);
-        }
-        .complete-merge-button:disabled {
-            opacity: 0.5;
-            cursor: default;
-        }
-
-        /* Column headers */
-        .column-headers {
-            display: grid;
-            grid-template-columns: 1fr 1px 1fr 1px 1fr;
-            flex-shrink: 0;
-            border-bottom: 1px solid var(--vscode-panel-border, #444);
-        }
-        .column-header {
-            padding: 5px 12px;
-            font-size: 0.8em;
+        .merge-toolbar-title {
+            font-size: 11px;
             font-weight: 600;
+            color: var(--foreground-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            opacity: 0.7;
         }
-        .column-header-result {
-            background: var(--vscode-editor-background);
+        .merge-sep { width: 1px; height: 16px; background: var(--border-light); flex-shrink: 0; margin: 0 4px; }
+        .spacer { flex: 1; }
+        .conflict-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--foreground-muted);
         }
-        .header-separator {
-            background: var(--vscode-panel-border, #444);
+        .conflict-count { color: var(--conflict-red); font-weight: 600; }
+        .pulse-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--conflict-red);
+            animation: blink 2s ease-in-out infinite;
+            flex-shrink: 0;
         }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .vsc-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            font-size: 12px;
+            border-radius: 2px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            line-height: 1.4;
+            white-space: nowrap;
+        }
+        .vsc-btn-primary { background: var(--btn-primary-bg); color: #fff; }
+        .vsc-btn-primary:hover { background: var(--btn-primary-hover); }
+        .vsc-btn-primary:disabled { opacity: 0.5; cursor: default; }
+        .vsc-btn-secondary { background: transparent; color: var(--foreground-dim); border-color: var(--border-light); }
+        .vsc-btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.06); }
+        .vsc-btn-secondary:disabled { opacity: 0.5; cursor: default; }
 
-        /* Columns container */
-        .columns-container {
+        /* ── Column headers ── */
+        .col-headers {
             display: grid;
-            grid-template-columns: 1fr 1px 1fr 1px 1fr;
+            grid-template-columns: 1fr 1fr 1fr 14px;
+            background: var(--sidebar-bg);
+            border-bottom: 1px solid var(--panel-border);
+            flex-shrink: 0;
+        }
+        .col-hdr {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 12px;
+            border-right: 1px solid var(--panel-border);
+        }
+        .col-hdr-bar { width: 2px; height: 14px; border-radius: 1px; flex-shrink: 0; }
+        .col-hdr.head .col-hdr-bar    { background: var(--head); }
+        .col-hdr.result .col-hdr-bar  { background: var(--result); }
+        .col-hdr.merging .col-hdr-bar { background: var(--merging); }
+        .col-hdr-name { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .col-hdr.head .col-hdr-name    { color: var(--head); }
+        .col-hdr.result .col-hdr-name  { color: var(--result); }
+        .col-hdr.merging .col-hdr-name { color: var(--merging); }
+        .col-hdr-branch {
+            font-size: 10.5px;
+            color: var(--foreground-muted);
+            padding: 1px 5px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+        }
+        .col-hdr-tag { margin-left: auto; font-size: 10px; color: var(--foreground-faint); }
+
+        /* ── Editor grid ── */
+        .editor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 14px;
             flex: 1;
             overflow: hidden;
             min-height: 0;
         }
-        .column {
+        .col {
             overflow-y: auto;
             overflow-x: auto;
+            border-right: 1px solid var(--panel-border);
+            background: var(--editor-bg);
         }
-        .column-result {
-            position: relative;
-            overflow: hidden;
-        }
-        .column-separator {
-            background: var(--vscode-panel-border, #444);
-            flex-shrink: 0;
-        }
+        .column-result { position: relative; overflow: hidden; }
+        #monacoEditorContainer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
 
-        /* Monaco Editor container */
-        #monacoEditorContainer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-        }
-
-        /* Code content for side columns */
+        /* ── Code segments ── */
         .code-segment {
-            font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
-            font-size: var(--vscode-editor-font-size, 13px);
-            line-height: var(--vscode-editor-line-height, 1.5);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.5;
             white-space: pre;
             padding: 0 8px;
         }
-        .conflict-segment {
-            padding: 2px 8px;
-            min-height: 1.5em;
-        }
-        .conflict-segment-head {
-            background: var(--vscode-merge-currentContentBackground, rgba(40, 160, 40, 0.12));
-            border-left: 3px solid var(--vscode-merge-currentHeaderBackground, rgba(40, 180, 40, 0.6));
-        }
-        .conflict-segment-merging {
-            background: var(--vscode-merge-incomingContentBackground, rgba(40, 100, 200, 0.12));
-            border-left: 3px solid var(--vscode-merge-incomingHeaderBackground, rgba(40, 120, 220, 0.6));
-        }
 
-        /* Conflict action buttons (US-008) */
-        .conflict-action-bar {
+        /* ── Conflict zones ── */
+        .cz.head-cz    { background: var(--head-bg);    border-left: 3px solid var(--head-border); }
+        .cz.merging-cz { background: var(--merging-bg); border-left: 3px solid var(--merging-border); }
+
+        /* ── Conflict action bar ── */
+        .ca {
             display: flex;
+            align-items: center;
             gap: 4px;
-            padding: 2px 4px 4px 4px;
+            padding: 3px 8px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid var(--panel-border);
         }
-        .conflict-action-button {
-            padding: 1px 8px;
-            font-size: 0.75em;
-            font-weight: 600;
+        .ab {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 1px 7px;
+            border-radius: 2px;
+            font-size: 11px;
             cursor: pointer;
-            border: 1px solid var(--vscode-panel-border, #555);
-            border-radius: 3px;
-            background: var(--vscode-button-secondaryBackground, #333);
-            color: var(--vscode-button-secondaryForeground, #ccc);
+            border: 1px solid transparent;
             line-height: 1.4;
         }
-        .conflict-action-button:hover:not(:disabled) {
-            background: var(--vscode-button-secondaryHoverBackground, #444);
-        }
-        .conflict-action-button:disabled {
-            opacity: 0.3;
-            cursor: default;
-        }
-        .conflict-segment-handled {
-            opacity: 0.35;
-            position: relative;
-        }
-        .conflict-segment-handled .conflict-action-button {
-            display: none;
-        }
-        .handled-label {
-            font-size: 0.7em;
-            opacity: 0.6;
-            font-style: italic;
-            padding: 2px 4px;
-        }
+        .ab.ah { color: var(--head);    border-color: rgba(230,147,26,0.4); background: rgba(230,147,26,0.08); }
+        .ab.ah:hover { background: rgba(230,147,26,0.18); }
+        .ab.am { color: var(--merging); border-color: rgba(74,171,247,0.4);  background: rgba(74,171,247,0.08); }
+        .ab.am:hover { background: rgba(74,171,247,0.18); }
+        .ab.dx { color: var(--foreground-muted); border-color: var(--border); background: transparent; }
+        .ab.dx:hover { background: rgba(255,255,255,0.06); color: var(--foreground-dim); }
 
-        /* Loading state */
+        /* ── Handled state ── */
+        .conflict-segment-handled { opacity: 0.35; }
+        .conflict-segment-handled .ca { display: none; }
+        .handled-label { font-size: 0.7em; opacity: 0.6; font-style: italic; padding: 2px 8px; }
+
+        /* ── Loading ── */
         .loading-indicator {
             display: flex;
             align-items: center;
@@ -341,46 +377,100 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             opacity: 0.5;
             font-size: 0.9em;
         }
+
+        /* ── Minimap ── */
+        .minimap {
+            background: var(--editor-bg);
+            border-left: 1px solid var(--panel-border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .mm-seg { width: 100%; flex-shrink: 0; }
+
+        /* ── Status bar ── */
+        .statusbar {
+            display: flex;
+            align-items: center;
+            height: 22px;
+            background: var(--statusbar-bg);
+            font-size: 12px;
+            color: var(--statusbar-fg);
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .sb-item { display: flex; align-items: center; gap: 4px; padding: 0 10px; height: 100%; cursor: pointer; }
+        .sb-item:hover { background: rgba(255,255,255,0.12); }
+        .sb-item.sb-warn { background: #cc6633; }
+        .sb-item.sb-warn:hover { background: #d97540; }
+        .sb-spacer { flex: 1; }
+        .kbd { padding: 0 4px; background: rgba(255,255,255,0.15); border-radius: 2px; font-size: 10.5px; }
     </style>
 </head>
 <body>
-    <div class="toolbar">
-        <span class="toolbar-file-name" title="${fileNameSanitizzato}">${fileNameSanitizzato}</span>
-        <button class="complete-merge-button" id="completeMergeButton">Complete Merge</button>
+    <div class="merge-toolbar">
+        <span class="merge-toolbar-title">Git Enhanced — Merge Editor</span>
+        <div class="merge-sep"></div>
+        <div class="conflict-badge">
+            <span class="pulse-dot"></span>
+            <span class="conflict-count" id="conflictCount">—</span>
+            <span>conflicts remaining</span>
+        </div>
+        <div class="spacer"></div>
+        <button class="vsc-btn vsc-btn-secondary" disabled>&#10022; Auto-resolve</button>
+        <button class="vsc-btn vsc-btn-primary" id="completeMergeButton">&#10003; Complete Merge</button>
     </div>
-    <div class="column-headers">
-        <div class="column-header">HEAD / Il tuo codice</div>
-        <div class="header-separator"></div>
-        <div class="column-header column-header-result">Result</div>
-        <div class="header-separator"></div>
-        <div class="column-header">MERGING / Codice in arrivo</div>
+    <div class="col-headers">
+        <div class="col-hdr head">
+            <div class="col-hdr-bar"></div>
+            <span class="col-hdr-name">Current (HEAD)</span>
+            <span class="col-hdr-branch">${baseNameSanitizzato}</span>
+            <span class="col-hdr-tag">read-only</span>
+        </div>
+        <div class="col-hdr result">
+            <div class="col-hdr-bar"></div>
+            <span class="col-hdr-name">Result</span>
+            <span class="col-hdr-tag">editable</span>
+        </div>
+        <div class="col-hdr merging">
+            <div class="col-hdr-bar"></div>
+            <span class="col-hdr-name">Incoming (MERGING)</span>
+            <span class="col-hdr-branch">${baseNameSanitizzato}</span>
+            <span class="col-hdr-tag">read-only</span>
+        </div>
+        <div></div>
     </div>
-    <div class="columns-container">
-        <div class="column" id="columnHead">
+    <div class="editor-grid">
+        <div class="col" id="columnHead">
             <div class="loading-indicator">Loading...</div>
         </div>
-        <div class="column-separator"></div>
-        <div class="column column-result" id="columnResult">
+        <div class="col column-result" id="columnResult">
             <div id="monacoEditorContainer"></div>
         </div>
-        <div class="column-separator"></div>
-        <div class="column" id="columnMerging">
+        <div class="col" id="columnMerging">
             <div class="loading-indicator">Loading...</div>
         </div>
+        <div class="minimap" id="minimapContainer"></div>
+    </div>
+    <div class="statusbar">
+        <div class="sb-item sb-warn"><span>&#9889;</span><span>Git Enhanced</span></div>
+        <div class="sb-item"><span>&#8859;</span><span title="${fileNameSanitizzato}">${baseNameSanitizzato}</span></div>
+        <div class="sb-item"><span>&#9888;</span><span id="sbConflictCount">— merge conflicts</span></div>
+        <div class="sb-spacer"></div>
+        <div class="sb-item"><span class="kbd">F7</span><span>next</span><span class="kbd">Shift+F7</span><span>prev</span></div>
     </div>
     <script nonce="${nonce}" src="${monacoBaseUri}/vs/loader.js"></script>
     <script nonce="${nonce}">
         (function() {
             var vscode = acquireVsCodeApi();
             var monacoEditorInstance = null;
-            var linguaggioId = '${linguaggioId}';
-            var statiConflitti = {};  // { index: { headGestito: bool, mergingGestito: bool, contenutoApplicato: string|null } }
-            var segmentiGlobali = null;  // stored for re-rendering
+            var linguaggioId = '${linguaggioIdSafe}';
+            var statiConflitti = {};
+            var segmentiGlobali = null;
 
             // US-007: Configure Monaco AMD loader
             require.config({ paths: { 'vs': '${monacoBaseUri}/vs' }});
 
-            // Use blob workers to avoid CSP issues with data: URLs
             window.MonacoEnvironment = {
                 getWorkerUrl: function() {
                     return URL.createObjectURL(new Blob(
@@ -393,29 +483,16 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             function buildSegmentsFromConflicts(righe, conflitti) {
                 var segmenti = [];
                 var rigaCorrente = 0;
-
                 for (var i = 0; i < conflitti.length; i++) {
                     var conflitto = conflitti[i];
                     if (rigaCorrente < conflitto.startLine) {
-                        segmenti.push({
-                            tipo: 'comune',
-                            contenuto: righe.slice(rigaCorrente, conflitto.startLine).join('\\n')
-                        });
+                        segmenti.push({ tipo: 'comune', contenuto: righe.slice(rigaCorrente, conflitto.startLine).join('\\n') });
                     }
-                    segmenti.push({
-                        tipo: 'conflitto',
-                        indice: conflitto.index,
-                        head: conflitto.head,
-                        base: conflitto.base,
-                        merging: conflitto.merging
-                    });
+                    segmenti.push({ tipo: 'conflitto', indice: conflitto.index, head: conflitto.head, base: conflitto.base, merging: conflitto.merging });
                     rigaCorrente = conflitto.endLine + 1;
                 }
                 if (rigaCorrente < righe.length) {
-                    segmenti.push({
-                        tipo: 'comune',
-                        contenuto: righe.slice(rigaCorrente).join('\\n')
-                    });
+                    segmenti.push({ tipo: 'comune', contenuto: righe.slice(rigaCorrente).join('\\n') });
                 }
                 return segmenti;
             }
@@ -425,124 +502,155 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 var rigaCorrente = 0;
                 for (var i = 0; i < conflitti.length; i++) {
                     var c = conflitti[i];
-                    for (var j = rigaCorrente; j < c.startLine; j++) {
-                        resultLines.push(righe[j]);
-                    }
+                    for (var j = rigaCorrente; j < c.startLine; j++) { resultLines.push(righe[j]); }
                     resultLines.push('// [Conflitto #' + (c.index + 1) + ' -- irrisolto]');
                     rigaCorrente = c.endLine + 1;
                 }
-                for (var j = rigaCorrente; j < righe.length; j++) {
-                    resultLines.push(righe[j]);
-                }
+                for (var j = rigaCorrente; j < righe.length; j++) { resultLines.push(righe[j]); }
                 return resultLines.join('\\n');
             }
 
-            // US-008: Apply HEAD chunk content to the result column via Monaco
-            // US-010: Supports queuing — if MERGING was already applied, appends after it
+            // US-008: Apply HEAD chunk — US-010: queuing support
             function applicaChunkHead(indiceConflitto, contenutoHead) {
                 if (!monacoEditorInstance) return;
                 var model = monacoEditorInstance.getModel();
                 var placeholder = '// [Conflitto #' + (indiceConflitto + 1) + ' -- irrisolto]';
                 var matches = model.findMatches(placeholder, false, false, true, null, false);
-
                 if (matches.length > 0) {
-                    var range = matches[0].range;
-                    monacoEditorInstance.executeEdits('applica-chunk-head', [{
-                        range: range,
-                        text: contenutoHead
-                    }]);
+                    monacoEditorInstance.executeEdits('applica-chunk-head', [{ range: matches[0].range, text: contenutoHead }]);
                     statiConflitti[indiceConflitto].contenutoApplicato = contenutoHead;
                 } else if (statiConflitti[indiceConflitto].contenutoApplicato) {
-                    // US-010: Placeholder already replaced — queue after previously applied content
                     var contenutoPrecedente = statiConflitti[indiceConflitto].contenutoApplicato;
                     var matchesPrecedenti = model.findMatches(contenutoPrecedente, false, false, true, null, false);
                     if (matchesPrecedenti.length > 0) {
-                        var rangePrecedente = matchesPrecedenti[0].range;
-                        var fineRiga = rangePrecedente.endLineNumber;
-                        var fineColonna = rangePrecedente.endColumn;
-                        var rangeInserimento = new monaco.Range(fineRiga, fineColonna, fineRiga, fineColonna);
-                        monacoEditorInstance.executeEdits('accoda-chunk-head', [{
-                            range: rangeInserimento,
-                            text: '\\n' + contenutoHead
-                        }]);
+                        var rp = matchesPrecedenti[0].range;
+                        var ri = new monaco.Range(rp.endLineNumber, rp.endColumn, rp.endLineNumber, rp.endColumn);
+                        monacoEditorInstance.executeEdits('accoda-chunk-head', [{ range: ri, text: '\\n' + contenutoHead }]);
                         statiConflitti[indiceConflitto].contenutoApplicato = contenutoPrecedente + '\\n' + contenutoHead;
                     }
                 }
-
                 statiConflitti[indiceConflitto].headGestito = true;
                 marcaConflittoComeGestito('head', indiceConflitto);
             }
 
-            // US-008: Discard HEAD chunk (mark as handled without modifying result)
+            // US-008: Discard HEAD chunk
             function scartaChunkHead(indiceConflitto) {
                 statiConflitti[indiceConflitto].headGestito = true;
                 marcaConflittoComeGestito('head', indiceConflitto);
             }
 
-            // US-009: Apply MERGING chunk content to the result column via Monaco
-            // US-010: Supports queuing — if HEAD was already applied, appends after it
+            // US-009: Apply MERGING chunk — US-010: queuing support
             function applicaChunkMerging(indiceConflitto, contenutoMerging) {
                 if (!monacoEditorInstance) return;
                 var model = monacoEditorInstance.getModel();
                 var placeholder = '// [Conflitto #' + (indiceConflitto + 1) + ' -- irrisolto]';
                 var matches = model.findMatches(placeholder, false, false, true, null, false);
-
                 if (matches.length > 0) {
-                    var range = matches[0].range;
-                    monacoEditorInstance.executeEdits('applica-chunk-merging', [{
-                        range: range,
-                        text: contenutoMerging
-                    }]);
+                    monacoEditorInstance.executeEdits('applica-chunk-merging', [{ range: matches[0].range, text: contenutoMerging }]);
                     statiConflitti[indiceConflitto].contenutoApplicato = contenutoMerging;
                 } else if (statiConflitti[indiceConflitto].contenutoApplicato) {
-                    // US-010: Placeholder already replaced — queue after previously applied content
                     var contenutoPrecedente = statiConflitti[indiceConflitto].contenutoApplicato;
                     var matchesPrecedenti = model.findMatches(contenutoPrecedente, false, false, true, null, false);
                     if (matchesPrecedenti.length > 0) {
-                        var rangePrecedente = matchesPrecedenti[0].range;
-                        var fineRiga = rangePrecedente.endLineNumber;
-                        var fineColonna = rangePrecedente.endColumn;
-                        var rangeInserimento = new monaco.Range(fineRiga, fineColonna, fineRiga, fineColonna);
-                        monacoEditorInstance.executeEdits('accoda-chunk-merging', [{
-                            range: rangeInserimento,
-                            text: '\\n' + contenutoMerging
-                        }]);
+                        var rp = matchesPrecedenti[0].range;
+                        var ri = new monaco.Range(rp.endLineNumber, rp.endColumn, rp.endLineNumber, rp.endColumn);
+                        monacoEditorInstance.executeEdits('accoda-chunk-merging', [{ range: ri, text: '\\n' + contenutoMerging }]);
                         statiConflitti[indiceConflitto].contenutoApplicato = contenutoPrecedente + '\\n' + contenutoMerging;
                     }
                 }
-
                 statiConflitti[indiceConflitto].mergingGestito = true;
                 marcaConflittoComeGestito('merging', indiceConflitto);
             }
 
-            // US-009: Discard MERGING chunk (mark as handled without modifying result)
+            // US-009: Discard MERGING chunk
             function scartaChunkMerging(indiceConflitto) {
                 statiConflitti[indiceConflitto].mergingGestito = true;
                 marcaConflittoComeGestito('merging', indiceConflitto);
             }
 
-            // Mark a conflict segment as visually handled in the specified column
-            function marcaConflittoComeGestito(colonna, indiceConflitto) {
-                var selectorColumn = colonna === 'head' ? '#columnHead' : '#columnMerging';
-                var segmentDiv = document.querySelector(
-                    selectorColumn + ' [data-conflict-index="' + indiceConflitto + '"]'
-                );
-                if (segmentDiv) {
-                    segmentDiv.classList.add('conflict-segment-handled');
-                    // Add handled label
-                    var handledLabel = document.createElement('div');
-                    handledLabel.className = 'handled-label';
-                    handledLabel.textContent = statiConflitti[indiceConflitto].headGestito && colonna === 'head'
-                        ? (function() {
-                            // Check if it was applied or discarded by looking at action bar presence
-                            return 'gestito';
-                          })()
-                        : 'gestito';
-                    var actionBar = segmentDiv.querySelector('.conflict-action-bar');
-                    if (actionBar) {
-                        actionBar.replaceWith(handledLabel);
+            // US-027: Count conflicts where not both sides are handled
+            function contaConflittiAperti() {
+                var count = 0;
+                for (var k in statiConflitti) {
+                    if (!statiConflitti[k].headGestito || !statiConflitti[k].mergingGestito) {
+                        count++;
                     }
                 }
+                return count;
+            }
+
+            // US-027: Aggiorna badge toolbar e contatore status bar, ridisegna minimap
+            function aggiornaContatoreBadge() {
+                var nonInizializzato = Object.keys(statiConflitti).length === 0;
+                var aperti = nonInizializzato ? null : contaConflittiAperti();
+                var el = document.getElementById('conflictCount');
+                if (el) { el.textContent = aperti === null ? '\u2014' : aperti.toString(); }
+                var sbEl = document.getElementById('sbConflictCount');
+                if (sbEl) { sbEl.textContent = aperti === null ? '\u2014 merge conflicts' : aperti + ' merge conflicts'; }
+                renderMinimap();
+            }
+
+            // US-027: Disegna segmenti proporzionali nella minimap.
+            // Prima chiamata: costruisce tutti i segmenti.
+            // Chiamate successive: aggiorna solo il colore dei segmenti conflitto.
+            function renderMinimap() {
+                var container = document.getElementById('minimapContainer');
+                if (!container || !segmentiGlobali) { return; }
+                var primaVolta = container.children.length === 0;
+                if (!primaVolta) {
+                    // Aggiorna solo il colore dei segmenti di tipo conflitto
+                    var segmentiConflitto = container.querySelectorAll('[data-mm-conflict]');
+                    for (var j = 0; j < segmentiConflitto.length; j++) {
+                        var indice = parseInt(segmentiConflitto[j].getAttribute('data-mm-conflict'), 10);
+                        var stato = statiConflitti[indice];
+                        segmentiConflitto[j].style.background = (stato && stato.headGestito && stato.mergingGestito)
+                            ? 'rgba(78,201,176,0.6)'
+                            : 'rgba(241,76,76,0.7)';
+                    }
+                    return;
+                }
+                var totalLinee = 0;
+                for (var i = 0; i < segmentiGlobali.length; i++) {
+                    var s = segmentiGlobali[i];
+                    totalLinee += s.tipo === 'comune'
+                        ? s.contenuto.split('\\n').length
+                        : Math.max(s.head ? s.head.split('\\n').length : 1, s.merging ? s.merging.split('\\n').length : 1);
+                }
+                if (totalLinee === 0) { return; }
+                for (var i = 0; i < segmentiGlobali.length; i++) {
+                    var s = segmentiGlobali[i];
+                    var el = document.createElement('div');
+                    el.className = 'mm-seg';
+                    var linee;
+                    if (s.tipo === 'comune') {
+                        linee = s.contenuto.split('\\n').length;
+                        el.style.background = 'rgba(212,212,212,0.08)';
+                    } else {
+                        linee = Math.max(s.head ? s.head.split('\\n').length : 1, s.merging ? s.merging.split('\\n').length : 1);
+                        var stato = statiConflitti[s.indice];
+                        el.style.background = (stato && stato.headGestito && stato.mergingGestito)
+                            ? 'rgba(78,201,176,0.6)'
+                            : 'rgba(241,76,76,0.7)';
+                        el.setAttribute('data-mm-conflict', s.indice);
+                    }
+                    el.style.flex = linee + ' 0 0px';
+                    container.appendChild(el);
+                }
+            }
+
+            // Mark a conflict segment as visually handled; update counter
+            function marcaConflittoComeGestito(colonna, indiceConflitto) {
+                var selectorColumn = colonna === 'head' ? '#columnHead' : '#columnMerging';
+                var segmentDiv = document.querySelector(selectorColumn + ' [data-conflict-index="' + indiceConflitto + '"]');
+                if (segmentDiv) {
+                    segmentDiv.classList.add('conflict-segment-handled');
+                    var handledLabel = document.createElement('div');
+                    handledLabel.className = 'handled-label';
+                    handledLabel.textContent = 'gestito';
+                    var actionBar = segmentDiv.querySelector('.ca');
+                    if (actionBar) { actionBar.replaceWith(handledLabel); }
+                }
+                aggiornaContatoreBadge();
             }
 
             function renderColonneLaterali(segmenti) {
@@ -560,43 +668,37 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                         divHead.className = 'code-segment';
                         divHead.textContent = segmento.contenuto;
                     } else {
-                        divHead.className = 'code-segment conflict-segment conflict-segment-head';
+                        divHead.className = 'cz head-cz';
                         divHead.setAttribute('data-conflict-index', segmento.indice);
 
-                        // US-008: Action buttons for HEAD chunks
                         var actionBarHead = document.createElement('div');
-                        actionBarHead.className = 'conflict-action-bar';
+                        actionBarHead.className = 'ca';
 
                         var applyButtonHead = document.createElement('button');
-                        applyButtonHead.className = 'conflict-action-button';
-                        applyButtonHead.textContent = '>>';
+                        applyButtonHead.className = 'ab ah';
+                        applyButtonHead.textContent = '>> Accept Current';
                         applyButtonHead.title = 'Applica chunk HEAD nella colonna Result';
                         (function(idx, content) {
-                            applyButtonHead.addEventListener('click', function() {
-                                applicaChunkHead(idx, content);
-                            });
+                            applyButtonHead.addEventListener('click', function() { applicaChunkHead(idx, content); });
                         })(segmento.indice, segmento.head);
 
                         var discardButtonHead = document.createElement('button');
-                        discardButtonHead.className = 'conflict-action-button';
-                        discardButtonHead.textContent = 'x';
+                        discardButtonHead.className = 'ab dx';
+                        discardButtonHead.textContent = '\\u2715 Ignore';
                         discardButtonHead.title = 'Scarta chunk HEAD';
                         (function(idx) {
-                            discardButtonHead.addEventListener('click', function() {
-                                scartaChunkHead(idx);
-                            });
+                            discardButtonHead.addEventListener('click', function() { scartaChunkHead(idx); });
                         })(segmento.indice);
 
                         actionBarHead.appendChild(applyButtonHead);
                         actionBarHead.appendChild(discardButtonHead);
                         divHead.appendChild(actionBarHead);
 
-                        // Code content below buttons
                         var codeContent = document.createElement('div');
+                        codeContent.className = 'code-segment';
                         codeContent.textContent = segmento.head;
                         divHead.appendChild(codeContent);
 
-                        // Initialize conflict state
                         if (!statiConflitti[segmento.indice]) {
                             statiConflitti[segmento.indice] = { headGestito: false, mergingGestito: false, contenutoApplicato: null };
                         }
@@ -609,43 +711,37 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                         divMerging.className = 'code-segment';
                         divMerging.textContent = segmento.contenuto;
                     } else {
-                        divMerging.className = 'code-segment conflict-segment conflict-segment-merging';
+                        divMerging.className = 'cz merging-cz';
                         divMerging.setAttribute('data-conflict-index', segmento.indice);
 
-                        // US-009: Action buttons for MERGING chunks
                         var actionBarMerging = document.createElement('div');
-                        actionBarMerging.className = 'conflict-action-bar';
+                        actionBarMerging.className = 'ca';
 
                         var applyButtonMerging = document.createElement('button');
-                        applyButtonMerging.className = 'conflict-action-button';
-                        applyButtonMerging.textContent = '<<';
+                        applyButtonMerging.className = 'ab am';
+                        applyButtonMerging.textContent = '<< Accept Incoming';
                         applyButtonMerging.title = 'Applica chunk MERGING nella colonna Result';
                         (function(idx, content) {
-                            applyButtonMerging.addEventListener('click', function() {
-                                applicaChunkMerging(idx, content);
-                            });
+                            applyButtonMerging.addEventListener('click', function() { applicaChunkMerging(idx, content); });
                         })(segmento.indice, segmento.merging);
 
                         var discardButtonMerging = document.createElement('button');
-                        discardButtonMerging.className = 'conflict-action-button';
-                        discardButtonMerging.textContent = 'x';
+                        discardButtonMerging.className = 'ab dx';
+                        discardButtonMerging.textContent = '\\u2715 Ignore';
                         discardButtonMerging.title = 'Scarta chunk MERGING';
                         (function(idx) {
-                            discardButtonMerging.addEventListener('click', function() {
-                                scartaChunkMerging(idx);
-                            });
+                            discardButtonMerging.addEventListener('click', function() { scartaChunkMerging(idx); });
                         })(segmento.indice);
 
                         actionBarMerging.appendChild(applyButtonMerging);
                         actionBarMerging.appendChild(discardButtonMerging);
                         divMerging.appendChild(actionBarMerging);
 
-                        // Code content below buttons
                         var codeContentMerging = document.createElement('div');
+                        codeContentMerging.className = 'code-segment';
                         codeContentMerging.textContent = segmento.merging;
                         divMerging.appendChild(codeContentMerging);
 
-                        // Initialize conflict state (shared with HEAD)
                         if (!statiConflitti[segmento.indice]) {
                             statiConflitti[segmento.indice] = { headGestito: false, mergingGestito: false, contenutoApplicato: null };
                         }
@@ -657,14 +753,12 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             function creaMonacoEditor(contenutoIniziale) {
                 var isDarkTheme = document.body.classList.contains('vscode-dark') ||
                                   document.body.classList.contains('vscode-high-contrast');
-                var monacoTheme = isDarkTheme ? 'vs-dark' : 'vs';
-
                 monacoEditorInstance = monaco.editor.create(
                     document.getElementById('monacoEditorContainer'),
                     {
                         value: contenutoIniziale,
                         language: linguaggioId,
-                        theme: monacoTheme,
+                        theme: isDarkTheme ? 'vs-dark' : 'vs',
                         readOnly: false,
                         minimap: { enabled: false },
                         scrollBeyondLastLine: false,
@@ -685,6 +779,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 var segmenti = buildSegmentsFromConflicts(dati.righe, dati.conflitti);
                 segmentiGlobali = segmenti;
                 renderColonneLaterali(segmenti);
+                aggiornaContatoreBadge();
 
                 // US-007: Initialize Monaco Editor in the result column
                 var contenutoRisultato = buildInitialResultContent(dati.righe, dati.conflitti);
@@ -693,12 +788,10 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 });
             }
 
-            // Complete Merge button
             document.getElementById('completeMergeButton').addEventListener('click', function() {
                 vscode.postMessage({ command: 'completaMerge' });
             });
 
-            // Message handler
             window.addEventListener('message', function(event) {
                 var message = event.data;
                 if (message.command === 'inizializzaLayout') {
@@ -717,7 +810,6 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 }
             });
 
-            // Signal webview is ready to receive data
             vscode.postMessage({ command: 'webviewPronta' });
         })();
     </script>

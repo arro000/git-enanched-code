@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls c:/study/repositories/signori-agenti/git-enanched-code/esbuild*)"
+      "Bash(ls c:/study/repositories/signori-agenti/git-enanched-code/esbuild*)",
+      "Skill(ralph-loop:cancel-ralph)",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)"
     ]
   }
 }
