@@ -12,14 +12,14 @@
 | Epic | Titolo | Storie | Story Points | Scope |
 |---|---|---|---|---|
 | EP-001 | Foundation & Git Integration | 5 | 12 | MVP |
-| EP-002 | Layout 3 Colonne & Monaco Editor | 7 | 16 | MVP |
+| EP-002 | Layout 3 Colonne & Monaco Editor | 6 | 13 | MVP |
 | EP-003 | Smart Merge Engine | 5 | 14 | Growth |
 | EP-004 | Minimap & Navigazione | 5 | 9 | Growth |
 | EP-005 | Onboarding & Configurazione | 2 | 4 | Growth |
 | EP-006 | CI/CD & Distribuzione | 3 | 7 | Vision |
 
-**Storie totali:** 27
-**Story points totali:** 62
+**Storie totali:** 26
+**Story points totali:** 59
 **Storie MVP:** 11 (25pt)
 
 ---
@@ -242,26 +242,6 @@ in modo da ottenere un risultato pulito che non richiede post-editing per rimuov
 - [x] Se `>>` e `<<` vengono applicati entrambi sullo stesso conflitto, i contenuti di entrambe le colonne appaiono in sequenza nella colonna centrale
 - [x] Nessun separatore visivo o marker di testo viene inserito tra i due chunk accodati
 - [x] L'ordine di accodamento riflette l'ordine dei click (il secondo click accoda dopo il primo)
-
----
-
-#### US-027: Allineamento visivo UI con mockup Merge Editor
-
-**Epic:** EP-002 | **Priority:** HIGH | **Story Points:** 3
-**Status:** DONE
-
-**Story**
-Come developer,
-voglio che l'interfaccia del Merge Editor corrisponda al mockup visivo definito in `docs/mockups/merge-editor.html`,
-in modo da avere un'esperienza utente coerente e professionale con il design system VS Code Dark+.
-
-**Acceptance Criteria**
-- [x] La toolbar mostra un conflict badge con pulsating dot + "N conflicts remaining" aggiornato in tempo reale
-- [x] Le intestazioni colonne mostrano color-bar verticale (amber/teal/blue), nome colorato, branch badge e tag "read-only"/"editable"
-- [x] Le conflict zone usano la palette VS Code Dark+: HEAD amber, MERGING blue, RESULT pending rosso, RESULT resolved teal
-- [x] I pulsanti azione conflitto corrispondono al mockup: `>> Accept Current` (amber), `<< Accept Incoming` (blue), `✕ Ignore` (neutro)
-- [x] Una minimap strip da 14px compare sul lato destro con segmenti colorati per i conflitti
-- [x] Una status bar VS Code-style in fondo mostra il nome file, contatore conflitti e shortcut F7/Shift+F7
 
 ---
 
