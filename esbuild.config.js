@@ -54,7 +54,7 @@ const copiaWasmTreeSitterPlugin = {
 };
 
 /** @type {import('esbuild').BuildOptions} */
-const buildOptions = {
+const extensionBuildOptions = {
     entryPoints: ['./src/extension.ts'],
     bundle: true,
     outfile: './out/extension.js',
@@ -67,13 +67,31 @@ const buildOptions = {
     plugins: [copiaWasmTreeSitterPlugin],
 };
 
+/** @type {import('esbuild').BuildOptions} */
+const webviewBuildOptions = {
+    entryPoints: ['./src/ui/webview/mergeEditor.ts'],
+    bundle: true,
+    outdir: './out/webview',
+    format: 'iife',
+    platform: 'browser',
+    target: ['es2020'],
+    sourcemap: true,
+    minify: false,
+};
+
 async function main() {
     if (isWatch) {
-        const ctx = await esbuild.context(buildOptions);
-        await ctx.watch();
+        const [extensionCtx, webviewCtx] = await Promise.all([
+            esbuild.context(extensionBuildOptions),
+            esbuild.context(webviewBuildOptions),
+        ]);
+        await Promise.all([extensionCtx.watch(), webviewCtx.watch()]);
         console.log('Watching for changes...');
     } else {
-        await esbuild.build(buildOptions);
+        await Promise.all([
+            esbuild.build(extensionBuildOptions),
+            esbuild.build(webviewBuildOptions),
+        ]);
         console.log('Build complete.');
     }
 }

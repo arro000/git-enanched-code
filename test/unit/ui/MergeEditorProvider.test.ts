@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Mock vscode
 const mockPostMessage = vi.fn();
@@ -75,6 +77,7 @@ vi.mock('../../../src/core/git/ConflictParser', () => ({
 
 import { MergeEditorProvider } from '../../../src/ui/MergeEditorProvider';
 import { MergeSessionStateManager } from '../../../src/core/merge/MergeSessionStateManager';
+import { rilevaLinguaggioDaNomeFile } from '../../../src/ui/utils/RilevatoreLinguaggio';
 import * as vscode from 'vscode';
 
 interface MockDocument {
@@ -121,6 +124,23 @@ function creaMockWebviewPanel(): {
         title: '',
     };
 }
+
+// ── Helper: leggi i file sorgente della webview ──
+
+const percorsoRadice = path.resolve(__dirname, '..', '..', '..');
+
+function leggiFileSorgente(percorsoRelativo: string): string {
+    return fs.readFileSync(path.join(percorsoRadice, percorsoRelativo), 'utf-8');
+}
+
+const cssEsterno = leggiFileSorgente('src/ui/webview/mergeEditor.css');
+const sorgenteMonacoSetup = leggiFileSorgente('src/ui/webview/MonacoSetup.ts');
+const sorgenteConflictState = leggiFileSorgente('src/ui/webview/ConflictState.ts');
+const sorgenteColumnRenderer = leggiFileSorgente('src/ui/webview/ThreeColumnLayout/ColumnRenderer.ts');
+const sorgenteMergeModal = leggiFileSorgente('src/ui/webview/MergeModal.ts');
+const sorgenteMinimapRenderer = leggiFileSorgente('src/ui/webview/ConflictMinimap/MinimapRenderer.ts');
+const sorgenteMessageBridge = leggiFileSorgente('src/ui/webview/MessageBridge.ts');
+const sorgenteMergeEditorEntry = leggiFileSorgente('src/ui/webview/mergeEditor.ts');
 
 describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
     let pannelloWebview: ReturnType<typeof creaMockWebviewPanel>;
@@ -174,10 +194,8 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
             expect(html).toContain('id="columnMerging"');
         });
 
-        it('the HTML uses CSS grid with 3 equal columns plus minimap column', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('grid-template-columns: 1fr 1fr 1fr 14px');
+        it('the CSS uses grid with 3 equal columns plus minimap column', () => {
+            expect(cssEsterno).toContain('grid-template-columns: 1fr 1fr 1fr 14px');
         });
 
         it('the columns are visually separated via column headers and editor grid', async () => {
@@ -198,34 +216,25 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
             expect(html).not.toContain('<textarea');
         });
 
-        it('the side columns use code-segment class for display-only rendering', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            // The JS renders segments using div elements with code-segment class and textContent
-            expect(html).toContain("divHead.className = 'code-segment'");
-            expect(html).toContain("divMerging.className = 'code-segment'");
+        it('the ColumnRenderer source uses code-segment class for display-only rendering', () => {
+            expect(sorgenteColumnRenderer).toContain("divHead.className = 'code-segment'");
+            expect(sorgenteColumnRenderer).toContain("divMerging.className = 'code-segment'");
         });
     });
 
     describe('AC3: nessun overflow orizzontale su schermi >= 1280px', () => {
-        it('the body has overflow hidden to prevent page-level horizontal scroll', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('overflow: hidden');
+        it('the CSS has overflow hidden to prevent page-level horizontal scroll', () => {
+            expect(cssEsterno).toContain('overflow: hidden');
         });
 
-        it('the columns container uses grid layout that fills available space', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('flex: 1');
-            expect(html).toContain('min-height: 0');
+        it('the CSS uses grid layout that fills available space', () => {
+            expect(cssEsterno).toContain('flex: 1');
+            expect(cssEsterno).toContain('min-height: 0');
         });
 
-        it('the body uses flexbox column layout with 100vh height', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('height: 100vh');
-            expect(html).toContain('flex-direction: column');
+        it('the CSS uses flexbox column layout with 100vh height', () => {
+            expect(cssEsterno).toContain('height: 100vh');
+            expect(cssEsterno).toContain('flex-direction: column');
         });
     });
 
@@ -312,29 +321,23 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
             expect(html).toContain('Complete Merge');
         });
 
-        it('uses VS Code Dark+ palette CSS variables for styling', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('--foreground');
-            expect(html).toContain('--editor-bg');
-            expect(html).toContain('--btn-primary-bg');
+        it('the CSS uses VS Code Dark+ palette variables for styling', () => {
+            expect(cssEsterno).toContain('--foreground');
+            expect(cssEsterno).toContain('--editor-bg');
+            expect(cssEsterno).toContain('--btn-primary-bg');
         });
 
-        it('uses monospace font variable for code segments', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('--font-mono');
+        it('the CSS uses monospace font variable for code segments', () => {
+            expect(cssEsterno).toContain('--font-mono');
         });
 
-        it('uses VS Code Dark+ colors for HEAD and MERGING conflict highlights', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('--head-bg');
-            expect(html).toContain('--merging-bg');
+        it('the CSS uses VS Code Dark+ colors for HEAD and MERGING conflict highlights', () => {
+            expect(cssEsterno).toContain('--head-bg');
+            expect(cssEsterno).toContain('--merging-bg');
         });
     });
 
-    describe('Compatibilità con US-005 (persistenza stato)', () => {
+    describe('Compatibilita con US-005 (persistenza stato)', () => {
         it('sends restored state after layout initialization if state exists', async () => {
             // Compute the correct hash for the document content so recuperaStato validates it
             const stateManager = new MergeSessionStateManager(mockWorkspaceState as unknown as vscode.Memento);
@@ -413,83 +416,65 @@ describe('MergeEditorProvider — US-007: Monaco Editor nella colonna centrale',
             expect(html).toContain('vscode-resource');
         });
 
-        it('configures require.config with the Monaco base path', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("require.config");
-            expect(html).toContain("paths: { 'vs':");
+        it('the MonacoSetup source configures require.config with the Monaco base path', () => {
+            expect(sorgenteMonacoSetup).toContain("require.config");
+            expect(sorgenteMonacoSetup).toContain("paths: { 'vs':");
         });
 
-        it('requires vs/editor/editor.main to load Monaco', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("require(['vs/editor/editor.main']");
+        it('the MonacoSetup source requires vs/editor/editor.main to load Monaco', () => {
+            expect(sorgenteMonacoSetup).toContain("require(['vs/editor/editor.main']");
         });
 
-        it('creates Monaco editor with the detected language', async () => {
+        it('the HTML injects the detected language as a global variable', async () => {
             await inizializzaEditor();
             const html = pannelloWebview.webview.html;
-            // The file is test-file.ts → language 'typescript'
-            expect(html).toContain("var linguaggioId = 'typescript'");
+            // The file is test-file.ts -> language 'typescript'
+            expect(html).toContain("window.__LINGUAGGIO_ID__ = 'typescript'");
         });
 
-        it('creates Monaco editor using monaco.editor.create', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('monaco.editor.create');
+        it('the MonacoSetup source creates Monaco editor using monaco.editor.create', () => {
+            expect(sorgenteMonacoSetup).toContain('monaco.editor.create');
         });
 
-        it('detects dark/light theme from VS Code body classes', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('vscode-dark');
-            expect(html).toContain("'vs-dark'");
-            expect(html).toContain("'vs'");
+        it('the MonacoSetup source detects dark/light theme from VS Code body classes', () => {
+            expect(sorgenteMonacoSetup).toContain('vscode-dark');
+            expect(sorgenteMonacoSetup).toContain("'vs-dark'");
+            expect(sorgenteMonacoSetup).toContain("'vs'");
         });
     });
 
     describe('AC2: cursore posizionabile e testo editabile', () => {
-        it('creates Monaco editor with readOnly set to false', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('readOnly: false');
+        it('the MonacoSetup source creates Monaco editor with readOnly set to false', () => {
+            expect(sorgenteMonacoSetup).toContain('readOnly: false');
         });
 
         it('the Monaco container fills the entire result column', async () => {
             await inizializzaEditor();
             const html = pannelloWebview.webview.html;
             expect(html).toContain('id="monacoEditorContainer"');
-            // Container uses absolute positioning to fill parent
-            expect(html).toContain('#monacoEditorContainer');
-            expect(html).toMatch(/position:\s*absolute/);
+            // Container uses absolute positioning to fill parent (in the CSS)
+            expect(cssEsterno).toContain('#monacoEditorContainer');
+            expect(cssEsterno).toMatch(/position:\s*absolute/);
         });
 
-        it('enables automaticLayout for responsive resizing', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('automaticLayout: true');
+        it('the MonacoSetup source enables automaticLayout for responsive resizing', () => {
+            expect(sorgenteMonacoSetup).toContain('automaticLayout: true');
         });
     });
 
     describe('AC3: nessuna latenza percettibile durante la digitazione', () => {
-        it('disables minimap to reduce rendering overhead', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('minimap: { enabled: false }');
+        it('the MonacoSetup source disables minimap to reduce rendering overhead', () => {
+            expect(sorgenteMonacoSetup).toContain('minimap: { enabled: false }');
         });
 
-        it('enables line numbers for code navigation', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("lineNumbers: 'on'");
+        it('the MonacoSetup source enables line numbers for code navigation', () => {
+            expect(sorgenteMonacoSetup).toContain("lineNumbers: 'on'");
         });
 
-        it('uses blob workers to avoid blocking the main thread', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('MonacoEnvironment');
-            expect(html).toContain('getWorkerUrl');
-            expect(html).toContain('URL.createObjectURL');
+        it('the MonacoSetup source uses blob workers to avoid blocking the main thread', () => {
+            expect(sorgenteMonacoSetup).toContain('MonacoEnvironment');
+            expect(sorgenteMonacoSetup).toContain('getWorkerUrl');
+            expect(sorgenteMonacoSetup).toContain('URL.createObjectURL');
         });
     });
 
@@ -534,57 +519,62 @@ describe('MergeEditorProvider — US-007: Monaco Editor nella colonna centrale',
     });
 
     describe('Contenuto iniziale del result column', () => {
-        it('builds initial result content with conflict placeholders', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            // The JS function builds initial content with placeholders for conflicts
-            expect(html).toContain('buildInitialResultContent');
-            expect(html).toContain('Conflitto #');
-            expect(html).toContain('irrisolto');
+        it('the ColumnRenderer source builds initial result content with conflict placeholders', () => {
+            expect(sorgenteColumnRenderer).toContain('buildInitialResultContent');
+            expect(sorgenteColumnRenderer).toContain('Conflitto #');
+            expect(sorgenteColumnRenderer).toContain('irrisolto');
         });
     });
 
     describe('Rilevamento linguaggio dal nome file', () => {
-        it('detects TypeScript for .ts files', async () => {
-            documento = creaMockDocument();
-            documento.fileName = '/workspace/app.ts';
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'typescript'");
+        it('detects TypeScript for .ts files', () => {
+            expect(rilevaLinguaggioDaNomeFile('/workspace/app.ts')).toBe('typescript');
         });
 
-        it('detects JavaScript for .js files', async () => {
-            documento = creaMockDocument();
-            documento.fileName = '/workspace/app.js';
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'javascript'");
+        it('detects JavaScript for .js files', () => {
+            expect(rilevaLinguaggioDaNomeFile('/workspace/app.js')).toBe('javascript');
         });
 
-        it('detects Python for .py files', async () => {
-            documento = creaMockDocument();
-            documento.fileName = '/workspace/app.py';
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'python'");
+        it('detects Python for .py files', () => {
+            expect(rilevaLinguaggioDaNomeFile('/workspace/app.py')).toBe('python');
         });
 
-        it('defaults to plaintext for unknown extensions', async () => {
-            documento = creaMockDocument();
-            documento.fileName = '/workspace/data.xyz';
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'plaintext'");
+        it('defaults to plaintext for unknown extensions', () => {
+            expect(rilevaLinguaggioDaNomeFile('/workspace/data.xyz')).toBe('plaintext');
         });
 
-        it('detects CSharp for .cs files', async () => {
-            documento = creaMockDocument();
-            documento.fileName = '/workspace/Program.cs';
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'csharp'");
+        it('detects CSharp for .cs files', () => {
+            expect(rilevaLinguaggioDaNomeFile('/workspace/Program.cs')).toBe('csharp');
         });
 
-        it('detects Rust for .rs files', async () => {
-            documento = creaMockDocument();
-            documento.fileName = '/workspace/main.rs';
+        it('detects Rust for .rs files', () => {
+            expect(rilevaLinguaggioDaNomeFile('/workspace/main.rs')).toBe('rust');
+        });
+    });
+
+    describe('Struttura HTML con file esterni', () => {
+        it('the HTML includes a <link rel="stylesheet"> for the external CSS', async () => {
             await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain("linguaggioId = 'rust'");
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('<link rel="stylesheet"');
+        });
+
+        it('the HTML includes a <script src> for the webview bundle', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toMatch(/<script[^>]+src="/);
+        });
+
+        it('the HTML contains window.__MONACO_BASE_URI__ global variable', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('window.__MONACO_BASE_URI__');
+        });
+
+        it('the HTML contains window.__LINGUAGGIO_ID__ global variable', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('window.__LINGUAGGIO_ID__');
         });
     });
 });
@@ -613,126 +603,94 @@ describe('MergeEditorProvider — US-008: Applicazione chunk HEAD con >> e x', (
     }
 
     describe('AC1: click su >> copia contenuto HEAD nella colonna centrale', () => {
-        it('the HTML contains the "Accept Current" apply button for HEAD conflicts', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("applyButtonHead.textContent = '>> Accept Current'");
+        it('the ColumnRenderer source contains the "Accept Current" apply button for HEAD conflicts', () => {
+            expect(sorgenteColumnRenderer).toContain("applyButtonHead.textContent = '>> Accept Current'");
         });
 
-        it('the apply button has a descriptive title attribute', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('Applica chunk HEAD nella colonna Result');
+        it('the ColumnRenderer source has a descriptive title attribute for apply button', () => {
+            expect(sorgenteColumnRenderer).toContain('Applica chunk HEAD nella colonna Result');
         });
 
-        it('the applicaChunkHead function uses Monaco executeEdits to replace placeholder', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('applicaChunkHead');
-            expect(html).toContain('executeEdits');
-            expect(html).toContain('applica-chunk-head');
+        it('the ColumnRenderer source uses Monaco executeEdits to replace placeholder in applicaChunkHead', () => {
+            expect(sorgenteColumnRenderer).toContain('applicaChunkHead');
+            expect(sorgenteColumnRenderer).toContain('executeEdits');
+            expect(sorgenteColumnRenderer).toContain('applica-chunk-head');
         });
 
-        it('searches for the conflict placeholder pattern in Monaco model', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('findMatches');
-            expect(html).toContain('Conflitto #');
-            expect(html).toContain('irrisolto');
+        it('the ColumnRenderer source searches for the conflict placeholder pattern in Monaco model', () => {
+            expect(sorgenteColumnRenderer).toContain('findMatches');
+            expect(sorgenteColumnRenderer).toContain('Conflitto #');
+            expect(sorgenteColumnRenderer).toContain('irrisolto');
         });
     });
 
     describe('AC2: click su x scarta il chunk HEAD', () => {
-        it('the HTML contains the Ignore discard button for HEAD conflicts', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("discardButtonHead.textContent = '\\u2715 Ignore'");
+        it('the ColumnRenderer source contains the Ignore discard button for HEAD conflicts', () => {
+            expect(sorgenteColumnRenderer).toContain("discardButtonHead.textContent = '\\u2715 Ignore'");
         });
 
-        it('the discard button has a descriptive title attribute', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('Scarta chunk HEAD');
+        it('the ColumnRenderer source has a descriptive title attribute for discard button', () => {
+            expect(sorgenteColumnRenderer).toContain('Scarta chunk HEAD');
         });
 
-        it('the scartaChunkHead function marks the conflict as handled without modifying Monaco', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('scartaChunkHead');
+        it('the ColumnRenderer source marks the conflict as handled without modifying Monaco in scartaChunkHead', () => {
+            expect(sorgenteColumnRenderer).toContain('scartaChunkHead');
             // Discard marks handled state
-            expect(html).toContain('headGestito = true');
+            expect(sorgenteColumnRenderer).toContain('headGestito = true');
         });
     });
 
     describe('AC3: conflitto marcato visivamente come gestito', () => {
-        it('the CSS includes a handled style class that dims the segment', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('conflict-segment-handled');
-            expect(html).toContain('opacity: 0.35');
+        it('the CSS includes a handled style class that dims the segment', () => {
+            expect(cssEsterno).toContain('conflict-segment-handled');
+            expect(cssEsterno).toContain('opacity: 0.35');
         });
 
-        it('the marcaConflittoComeGestito function adds handled class to the segment', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('marcaConflittoComeGestito');
-            expect(html).toContain("classList.add('conflict-segment-handled')");
+        it('the ConflictState source adds handled class to the segment in marcaConflittoComeGestito', () => {
+            expect(sorgenteConflictState).toContain('marcaConflittoComeGestito');
+            expect(sorgenteConflictState).toContain("classList.add('conflict-segment-handled')");
         });
 
-        it('handled segments hide action bar via CSS', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('.conflict-segment-handled .ca');
-            expect(html).toContain('display: none');
+        it('the CSS hides action bar for handled segments', () => {
+            expect(cssEsterno).toContain('.conflict-segment-handled .ca');
+            expect(cssEsterno).toContain('display: none');
         });
 
-        it('each conflict segment has a data-conflict-index attribute for targeting', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('data-conflict-index');
-            expect(html).toContain("setAttribute('data-conflict-index'");
+        it('the ColumnRenderer source sets data-conflict-index attribute for targeting', () => {
+            expect(sorgenteColumnRenderer).toContain('data-conflict-index');
+            expect(sorgenteColumnRenderer).toContain("setAttribute('data-conflict-index'");
         });
     });
 
     describe('Tracciamento dello stato dei conflitti', () => {
-        it('initializes conflict state tracking object', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('statiConflitti');
-            expect(html).toContain('headGestito: false');
-            expect(html).toContain('mergingGestito: false');
+        it('the ConflictState source initializes conflict state tracking object', () => {
+            expect(sorgenteConflictState).toContain('statiConflitti');
+            expect(sorgenteConflictState).toContain('headGestito: false');
+            expect(sorgenteConflictState).toContain('mergingGestito: false');
         });
 
-        it('uses IIFE closures to capture correct conflict index in button handlers', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
+        it('the ColumnRenderer source uses IIFE closures to capture correct conflict index in button handlers', () => {
             // IIFE pattern for closure capture in loop
-            expect(html).toContain('(function(idx, content)');
-            expect(html).toContain('(function(idx)');
+            expect(sorgenteColumnRenderer).toContain('(function (idx: number, content: string)');
+            expect(sorgenteColumnRenderer).toContain('(function (idx: number)');
         });
     });
 
     describe('Struttura dei pulsanti azione', () => {
-        it('action buttons are inside a ca container', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("actionBarHead.className = 'ca'");
+        it('the ColumnRenderer source places action buttons inside a ca container', () => {
+            expect(sorgenteColumnRenderer).toContain("actionBarHead.className = 'ca'");
         });
 
-        it('action bar contains apply and discard buttons in order', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
+        it('the ColumnRenderer source adds apply and discard buttons in order', () => {
             // Apply button added first, then discard
-            expect(html).toContain('actionBarHead.appendChild(applyButtonHead)');
-            expect(html).toContain('actionBarHead.appendChild(discardButtonHead)');
+            expect(sorgenteColumnRenderer).toContain('actionBarHead.appendChild(applyButtonHead)');
+            expect(sorgenteColumnRenderer).toContain('actionBarHead.appendChild(discardButtonHead)');
         });
 
-        it('action bar is inserted before code content in the conflict segment', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('divHead.appendChild(actionBarHead)');
+        it('the ColumnRenderer source inserts action bar before code content in the conflict segment', () => {
+            expect(sorgenteColumnRenderer).toContain('divHead.appendChild(actionBarHead)');
             // Code content added after action bar
-            expect(html).toContain('divHead.appendChild(codeContent)');
+            expect(sorgenteColumnRenderer).toContain('divHead.appendChild(codeContent)');
         });
     });
 });
@@ -761,114 +719,84 @@ describe('MergeEditorProvider — US-009: Applicazione chunk MERGING con << e x'
     }
 
     describe('AC1: click su << copia contenuto MERGING nella colonna centrale', () => {
-        it('the HTML contains the "Accept Incoming" apply button for MERGING conflicts', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("applyButtonMerging.textContent = '<< Accept Incoming'");
+        it('the ColumnRenderer source contains the "Accept Incoming" apply button for MERGING conflicts', () => {
+            expect(sorgenteColumnRenderer).toContain("applyButtonMerging.textContent = '<< Accept Incoming'");
         });
 
-        it('the apply button has a descriptive title attribute', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('Applica chunk MERGING nella colonna Result');
+        it('the ColumnRenderer source has a descriptive title attribute for apply button', () => {
+            expect(sorgenteColumnRenderer).toContain('Applica chunk MERGING nella colonna Result');
         });
 
-        it('the applicaChunkMerging function uses Monaco executeEdits to replace placeholder', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('applicaChunkMerging');
-            expect(html).toContain('executeEdits');
-            expect(html).toContain('applica-chunk-merging');
+        it('the ColumnRenderer source uses Monaco executeEdits to replace placeholder in applicaChunkMerging', () => {
+            expect(sorgenteColumnRenderer).toContain('applicaChunkMerging');
+            expect(sorgenteColumnRenderer).toContain('executeEdits');
+            expect(sorgenteColumnRenderer).toContain('applica-chunk-merging');
         });
 
-        it('searches for the conflict placeholder pattern in Monaco model', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('findMatches');
-            expect(html).toContain('Conflitto #');
-            expect(html).toContain('irrisolto');
+        it('the ColumnRenderer source searches for the conflict placeholder pattern in Monaco model', () => {
+            expect(sorgenteColumnRenderer).toContain('findMatches');
+            expect(sorgenteColumnRenderer).toContain('Conflitto #');
+            expect(sorgenteColumnRenderer).toContain('irrisolto');
         });
     });
 
     describe('AC2: click su x scarta il chunk MERGING', () => {
-        it('the HTML contains the Ignore discard button for MERGING conflicts', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("discardButtonMerging.textContent = '\\u2715 Ignore'");
+        it('the ColumnRenderer source contains the Ignore discard button for MERGING conflicts', () => {
+            expect(sorgenteColumnRenderer).toContain("discardButtonMerging.textContent = '\\u2715 Ignore'");
         });
 
-        it('the discard button has a descriptive title attribute', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('Scarta chunk MERGING');
+        it('the ColumnRenderer source has a descriptive title attribute for discard button', () => {
+            expect(sorgenteColumnRenderer).toContain('Scarta chunk MERGING');
         });
 
-        it('the scartaChunkMerging function marks the conflict as handled without modifying Monaco', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('scartaChunkMerging');
+        it('the ColumnRenderer source marks the conflict as handled in scartaChunkMerging', () => {
+            expect(sorgenteColumnRenderer).toContain('scartaChunkMerging');
             // Discard marks handled state
-            expect(html).toContain('mergingGestito = true');
+            expect(sorgenteColumnRenderer).toContain('mergingGestito = true');
         });
     });
 
     describe('AC3: conflitto nella colonna destra marcato visivamente come gestito', () => {
-        it('the CSS handled style applies to MERGING column segments', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('conflict-segment-handled');
-            expect(html).toContain('opacity: 0.35');
+        it('the CSS handled style applies to conflict segments', () => {
+            expect(cssEsterno).toContain('conflict-segment-handled');
+            expect(cssEsterno).toContain('opacity: 0.35');
         });
 
-        it('marcaConflittoComeGestito supports the merging column selector', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("'#columnMerging'");
-            expect(html).toContain("classList.add('conflict-segment-handled')");
+        it('the ConflictState source supports the merging column selector in marcaConflittoComeGestito', () => {
+            expect(sorgenteConflictState).toContain("'#columnMerging'");
+            expect(sorgenteConflictState).toContain("classList.add('conflict-segment-handled')");
         });
 
-        it('handled segments hide action bar via CSS for both columns', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('.conflict-segment-handled .ca');
-            expect(html).toContain('display: none');
+        it('the CSS hides action bar for handled segments in both columns', () => {
+            expect(cssEsterno).toContain('.conflict-segment-handled .ca');
+            expect(cssEsterno).toContain('display: none');
         });
 
-        it('MERGING conflict segments have data-conflict-index attribute', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('data-conflict-index');
+        it('the ColumnRenderer source sets data-conflict-index on MERGING conflict segments', () => {
+            expect(sorgenteColumnRenderer).toContain('data-conflict-index');
         });
     });
 
     describe('Struttura dei pulsanti azione MERGING', () => {
-        it('MERGING action buttons are inside a ca container', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("actionBarMerging.className = 'ca'");
+        it('the ColumnRenderer source places MERGING action buttons inside a ca container', () => {
+            expect(sorgenteColumnRenderer).toContain("actionBarMerging.className = 'ca'");
         });
 
-        it('MERGING action bar contains apply and discard buttons in order', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('actionBarMerging.appendChild(applyButtonMerging)');
-            expect(html).toContain('actionBarMerging.appendChild(discardButtonMerging)');
+        it('the ColumnRenderer source adds MERGING apply and discard buttons in order', () => {
+            expect(sorgenteColumnRenderer).toContain('actionBarMerging.appendChild(applyButtonMerging)');
+            expect(sorgenteColumnRenderer).toContain('actionBarMerging.appendChild(discardButtonMerging)');
         });
 
-        it('MERGING action bar is inserted before code content in the conflict segment', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('divMerging.appendChild(actionBarMerging)');
-            expect(html).toContain('divMerging.appendChild(codeContentMerging)');
+        it('the ColumnRenderer source inserts MERGING action bar before code content in the conflict segment', () => {
+            expect(sorgenteColumnRenderer).toContain('divMerging.appendChild(actionBarMerging)');
+            expect(sorgenteColumnRenderer).toContain('divMerging.appendChild(codeContentMerging)');
         });
 
-        it('uses IIFE closures to capture correct conflict index in MERGING button handlers', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
+        it('the ColumnRenderer source uses IIFE closures to capture correct conflict index in MERGING button handlers', () => {
             // IIFE pattern for merging apply button closure
-            expect(html).toContain('applicaChunkMerging(idx, content)');
+            expect(sorgenteColumnRenderer).toContain('applicaChunkMerging(idx, content)');
             // IIFE pattern for merging discard button closure
-            expect(html).toContain('scartaChunkMerging(idx)');
+            expect(sorgenteColumnRenderer).toContain('scartaChunkMerging(idx)');
         });
     });
 });
@@ -897,50 +825,35 @@ describe('MergeEditorProvider — US-010: Accodamento chunk da entrambe le colon
     }
 
     describe('AC1: entrambi >> e << applicati accodano i contenuti in sequenza', () => {
-        it('applicaChunkHead stores contenutoApplicato when placeholder is found', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('statiConflitti[indiceConflitto].contenutoApplicato = contenutoHead');
+        it('the ColumnRenderer source stores contenutoApplicato when placeholder is found in applicaChunkHead', () => {
+            expect(sorgenteColumnRenderer).toContain('statiConflitti[indiceConflitto].contenutoApplicato = contenutoHead');
         });
 
-        it('applicaChunkMerging stores contenutoApplicato when placeholder is found', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('statiConflitti[indiceConflitto].contenutoApplicato = contenutoMerging');
+        it('the ColumnRenderer source stores contenutoApplicato when placeholder is found in applicaChunkMerging', () => {
+            expect(sorgenteColumnRenderer).toContain('statiConflitti[indiceConflitto].contenutoApplicato = contenutoMerging');
         });
 
-        it('when placeholder is gone, HEAD apply uses tracked end line to append content', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('statiConflitti[indiceConflitto].rigaFineApplicato');
-            expect(html).toContain('getLineMaxColumn');
-            expect(html).toContain('accoda-chunk-head');
+        it('the ColumnRenderer source uses tracked end line to append content when placeholder is gone', () => {
+            expect(sorgenteColumnRenderer).toContain('statiConflitti[indiceConflitto].rigaFineApplicato');
+            expect(sorgenteColumnRenderer).toContain('getLineMaxColumn');
+            expect(sorgenteColumnRenderer).toContain('accoda-chunk-head');
         });
 
-        it('when placeholder is gone, MERGING apply searches for previously applied content', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('accoda-chunk-merging');
+        it('the ColumnRenderer source supports queuing for MERGING when placeholder is gone', () => {
+            expect(sorgenteColumnRenderer).toContain('accoda-chunk-merging');
         });
     });
 
     describe('AC2: nessun separatore visivo tra i chunk accodati', () => {
-        it('queued content uses only a newline separator without markers or visual separators', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            // Template literal \\n outputs literal \n in the HTML JS code
-            expect(html).toContain("'\\n' + contenutoHead");
-            expect(html).toContain("'\\n' + contenutoMerging");
+        it('the ColumnRenderer source uses only a newline separator without markers or visual separators', () => {
+            expect(sorgenteColumnRenderer).toContain("'\\n' + contenutoHead");
+            expect(sorgenteColumnRenderer).toContain("'\\n' + contenutoMerging");
         });
 
-        it('does not insert any conflict marker or separator text between queued chunks', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            // Verify no separator pattern like "---" or "===" is added in queuing logic
-            const accodaHeadSection = html.substring(
-                html.indexOf('accoda-chunk-head'),
-                html.indexOf('accoda-chunk-head') + 300
-            );
+        it('the ColumnRenderer source does not insert any conflict marker or separator in queuing logic', () => {
+            // Get the section around accoda-chunk-head
+            const indice = sorgenteColumnRenderer.indexOf('accoda-chunk-head');
+            const accodaHeadSection = sorgenteColumnRenderer.substring(indice, indice + 300);
             expect(accodaHeadSection).not.toContain('---');
             expect(accodaHeadSection).not.toContain('===');
             expect(accodaHeadSection).not.toContain('<<<');
@@ -949,41 +862,29 @@ describe('MergeEditorProvider — US-010: Accodamento chunk da entrambe le colon
     });
 
     describe('AC3: ordine di accodamento riflette ordine dei click', () => {
-        it('queued content is appended at the tracked end line position', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            // Insertion happens at the tracked end line using getLineMaxColumn
-            expect(html).toContain('rigaFineApplicato');
-            expect(html).toContain('getLineMaxColumn');
+        it('the ColumnRenderer source appends queued content at the tracked end line position', () => {
+            expect(sorgenteColumnRenderer).toContain('rigaFineApplicato');
+            expect(sorgenteColumnRenderer).toContain('getLineMaxColumn');
         });
 
-        it('contenutoApplicato is updated to include both chunks after queuing', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            // After queuing, the combined content is stored for potential further queuing
-            expect(html).toContain("statiConflitti[indiceConflitto].contenutoApplicato + '\\n' + contenutoHead");
-            expect(html).toContain("statiConflitti[indiceConflitto].contenutoApplicato + '\\n' + contenutoMerging");
+        it('the ColumnRenderer source updates contenutoApplicato to include both chunks after queuing', () => {
+            expect(sorgenteColumnRenderer).toContain("statiConflitti[indiceConflitto].contenutoApplicato + '\\n' + contenutoHead");
+            expect(sorgenteColumnRenderer).toContain("statiConflitti[indiceConflitto].contenutoApplicato + '\\n' + contenutoMerging");
         });
 
-        it('uses Monaco Range for precise insertion positioning', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('monaco.Range');
-            expect(html).toContain('new monaco.Range(');
+        it('the ColumnRenderer source uses Monaco Range for precise insertion positioning', () => {
+            expect(sorgenteColumnRenderer).toContain('monaco.Range');
+            expect(sorgenteColumnRenderer).toContain('new monaco.Range(');
         });
     });
 
     describe('Stato iniziale contenutoApplicato', () => {
-        it('conflict state initializes contenutoApplicato as null', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('contenutoApplicato: null');
+        it('the ConflictState source initializes contenutoApplicato as null', () => {
+            expect(sorgenteConflictState).toContain('contenutoApplicato: null');
         });
 
-        it('queuing only triggers when contenutoApplicato is truthy', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('statiConflitti[indiceConflitto].contenutoApplicato');
+        it('the ColumnRenderer source references contenutoApplicato for queuing logic', () => {
+            expect(sorgenteColumnRenderer).toContain('statiConflitti[indiceConflitto].contenutoApplicato');
         });
     });
 });
@@ -1022,9 +923,8 @@ describe('MergeEditorProvider — US-027: Allineamento visivo UI con mockup Merg
             expect(pannelloWebview.webview.html).toContain('class="pulse-dot"');
         });
 
-        it('the HTML contains blink animation for the pulse dot', async () => {
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain('@keyframes blink');
+        it('the CSS contains blink animation for the pulse dot', () => {
+            expect(cssEsterno).toContain('@keyframes blink');
         });
 
         it('the Complete Merge button uses vsc-btn-primary style', async () => {
@@ -1053,48 +953,39 @@ describe('MergeEditorProvider — US-027: Allineamento visivo UI con mockup Merg
     });
 
     describe('AC3: palette VS Code Dark+ per conflict zones', () => {
-        it('defines --head amber color variable with correct hex value', async () => {
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain('--head:');
-            expect(pannelloWebview.webview.html).toContain('#e6931a');
+        it('the CSS defines --head amber color variable with correct hex value', () => {
+            expect(cssEsterno).toContain('--head:');
+            expect(cssEsterno).toContain('#e6931a');
         });
 
-        it('defines --result teal color variable with correct hex value', async () => {
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain('--result:');
-            expect(pannelloWebview.webview.html).toContain('#4ec9b0');
+        it('the CSS defines --result teal color variable with correct hex value', () => {
+            expect(cssEsterno).toContain('--result:');
+            expect(cssEsterno).toContain('#4ec9b0');
         });
 
-        it('defines --merging blue color variable with correct hex value', async () => {
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain('--merging:');
-            expect(pannelloWebview.webview.html).toContain('#4aabf7');
+        it('the CSS defines --merging blue color variable with correct hex value', () => {
+            expect(cssEsterno).toContain('--merging:');
+            expect(cssEsterno).toContain('#4aabf7');
         });
 
-        it('applies head-cz and merging-cz classes for conflict zones', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('head-cz');
-            expect(html).toContain('merging-cz');
+        it('the ColumnRenderer source applies head-cz and merging-cz classes for conflict zones', () => {
+            expect(sorgenteColumnRenderer).toContain('head-cz');
+            expect(sorgenteColumnRenderer).toContain('merging-cz');
         });
     });
 
     describe('AC4: pulsanti azione con label estese e stili mockup', () => {
-        it('HEAD apply button uses ab ah classes for amber styling', async () => {
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain("applyButtonHead.className = 'ab ah'");
+        it('the ColumnRenderer source uses ab ah classes for HEAD amber styling', () => {
+            expect(sorgenteColumnRenderer).toContain("applyButtonHead.className = 'ab ah'");
         });
 
-        it('MERGING apply button uses ab am classes for blue styling', async () => {
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain("applyButtonMerging.className = 'ab am'");
+        it('the ColumnRenderer source uses ab am classes for MERGING blue styling', () => {
+            expect(sorgenteColumnRenderer).toContain("applyButtonMerging.className = 'ab am'");
         });
 
-        it('discard buttons use ab dx classes for neutral styling', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("discardButtonHead.className = 'ab dx'");
-            expect(html).toContain("discardButtonMerging.className = 'ab dx'");
+        it('the ColumnRenderer source uses ab dx classes for neutral discard styling', () => {
+            expect(sorgenteColumnRenderer).toContain("discardButtonHead.className = 'ab dx'");
+            expect(sorgenteColumnRenderer).toContain("discardButtonMerging.className = 'ab dx'");
         });
     });
 
@@ -1104,14 +995,12 @@ describe('MergeEditorProvider — US-027: Allineamento visivo UI con mockup Merg
             expect(pannelloWebview.webview.html).toContain('id="minimapContainer"');
         });
 
-        it('the HTML contains the renderMinimap function', async () => {
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain('renderMinimap');
+        it('the MinimapRenderer source contains the renderMinimap function', () => {
+            expect(sorgenteMinimapRenderer).toContain('renderMinimap');
         });
 
-        it('the minimap uses 14px column in the CSS grid', async () => {
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain('1fr 1fr 1fr 14px');
+        it('the CSS uses 14px column in the grid for minimap', () => {
+            expect(cssEsterno).toContain('1fr 1fr 1fr 14px');
         });
     });
 
@@ -1133,23 +1022,20 @@ describe('MergeEditorProvider — US-027: Allineamento visivo UI con mockup Merg
     });
 
     describe('Wiring contatore badge (TASK-07)', () => {
-        it('the HTML contains aggiornaContatoreBadge function', async () => {
-            await inizializzaEditor();
-            expect(pannelloWebview.webview.html).toContain('aggiornaContatoreBadge');
+        it('the ConflictState source contains aggiornaContatoreBadge function', () => {
+            expect(sorgenteConflictState).toContain('aggiornaContatoreBadge');
         });
 
-        it('aggiornaContatoreBadge is called from marcaConflittoComeGestito', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            const marcaFn = html.substring(html.indexOf('function marcaConflittoComeGestito'), html.indexOf('function renderColonneLaterali'));
+        it('the ConflictState source calls aggiornaContatoreBadge from marcaConflittoComeGestito', () => {
+            const indiceInizio = sorgenteConflictState.indexOf('function marcaConflittoComeGestito');
+            const indiceFine = sorgenteConflictState.indexOf('function aggiornaContatoreBadge');
+            const marcaFn = sorgenteConflictState.substring(indiceInizio, indiceFine);
             expect(marcaFn).toContain('aggiornaContatoreBadge');
         });
 
-        it('aggiornaContatoreBadge is called after layout initialization', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            const start = html.indexOf('function inizializzaLayout');
-            const inizializzaFn = html.substring(start, start + 600);
+        it('the MessageBridge source calls aggiornaContatoreBadge after layout initialization', () => {
+            const indiceInizio = sorgenteMessageBridge.indexOf('function inizializzaLayout');
+            const inizializzaFn = sorgenteMessageBridge.substring(indiceInizio, indiceInizio + 600);
             expect(inizializzaFn).toContain('aggiornaContatoreBadge');
         });
     });
@@ -1220,11 +1106,11 @@ describe('MergeEditorProvider — US-011: Popup conferma merge con conflitti irr
             const html = pannelloWebview.webview.html;
             // L'overlay ha classe "modal-overlay" senza "visibile"
             expect(html).toMatch(/class="modal-overlay"\s+id="modalConfermaOverlay"/);
-            // Lo stile CSS definisce .modal-overlay { display: none }
-            expect(html).toContain('.modal-overlay {');
-            expect(html).toContain('display: none');
+            // Lo stile CSS definisce .modal-overlay { display: none } (nel file esterno)
+            expect(cssEsterno).toContain('.modal-overlay {');
+            expect(cssEsterno).toContain('display: none');
             // e .modal-overlay.visibile { display: flex }
-            expect(html).toContain('.modal-overlay.visibile');
+            expect(cssEsterno).toContain('.modal-overlay.visibile');
         });
     });
 
@@ -1441,71 +1327,52 @@ describe('MergeEditorProvider — US-011: Popup conferma merge con conflitti irr
         });
     });
 
-    // ── Verifica che il JS inline nell'HTML contenga la logica corretta ──
+    // ── Verifica che i file sorgente webview contengano la logica corretta ──
 
-    describe('Presenza della logica JS inline nel HTML generato', () => {
-        it('il JS contiene la funzione gestisciCompletaMerge che controlla contaConflittiAperti', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain('function gestisciCompletaMerge()');
-            expect(html).toContain('contaConflittiAperti()');
+    describe('Presenza della logica JS nei file sorgente webview', () => {
+        it('il sorgente MergeModal contiene la funzione gestisciCompletaMerge che controlla contaConflittiAperti', () => {
+            expect(sorgenteMergeModal).toContain('function gestisciCompletaMerge');
+            expect(sorgenteMergeModal).toContain('contaConflittiAperti()');
         });
 
-        it('gestisciCompletaMerge aggiunge la classe visibile all overlay quando ci sono conflitti', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            const funzioneGestisci = html.substring(
-                html.indexOf('function gestisciCompletaMerge'),
-                html.indexOf('function chiudiModalConferma')
-            );
+        it('gestisciCompletaMerge aggiunge la classe visibile all overlay quando ci sono conflitti', () => {
+            const indiceInizio = sorgenteMergeModal.indexOf('function gestisciCompletaMerge');
+            const indiceFine = sorgenteMergeModal.indexOf('function chiudiModalConferma');
+            const funzioneGestisci = sorgenteMergeModal.substring(indiceInizio, indiceFine);
             expect(funzioneGestisci).toContain("classList.add('visibile')");
             expect(funzioneGestisci).toContain('modalConfermaOverlay');
         });
 
-        it('gestisciCompletaMerge invia completaMerge direttamente quando non ci sono conflitti', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            const funzioneGestisci = html.substring(
-                html.indexOf('function gestisciCompletaMerge'),
-                html.indexOf('function chiudiModalConferma')
-            );
-            expect(funzioneGestisci).toContain("vscode.postMessage({ command: 'completaMerge', resolvedContent:");
+        it('gestisciCompletaMerge invia completaMerge direttamente quando non ci sono conflitti', () => {
+            const indiceInizio = sorgenteMergeModal.indexOf('function gestisciCompletaMerge');
+            const indiceFine = sorgenteMergeModal.indexOf('function chiudiModalConferma');
+            const funzioneGestisci = sorgenteMergeModal.substring(indiceInizio, indiceFine);
+            expect(funzioneGestisci).toContain("command: 'completaMerge', resolvedContent:");
         });
 
-        it('chiudiModalConferma rimuove la classe visibile dall overlay', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            const funzioneChiudi = html.substring(
-                html.indexOf('function chiudiModalConferma'),
-                html.indexOf('function chiudiModalConferma') + 300
-            );
+        it('chiudiModalConferma rimuove la classe visibile dall overlay', () => {
+            const indiceInizio = sorgenteMergeModal.indexOf('function chiudiModalConferma');
+            const funzioneChiudi = sorgenteMergeModal.substring(indiceInizio, indiceInizio + 300);
             expect(funzioneChiudi).toContain("classList.remove('visibile')");
         });
 
-        it('il bottone completeMergeButton invoca gestisciCompletaMerge al click', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("getElementById('completeMergeButton')");
-            expect(html).toContain('gestisciCompletaMerge()');
+        it('il sorgente MergeModal contiene il listener per il bottone completeMergeButton', () => {
+            expect(sorgenteMergeModal).toContain("getElementById('completeMergeButton')");
+            expect(sorgenteMergeModal).toContain('gestisciCompletaMerge');
         });
 
-        it('il bottone Conferma chiude il modal e invia completaMerge', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("getElementById('modalConfermaButton')");
-            // Dopo il listener di modalConfermaButton deve esserci chiudiModalConferma + postMessage
-            const indicePulsanteConferma = html.indexOf("getElementById('modalConfermaButton')");
-            const porzioneDopoConferma = html.substring(indicePulsanteConferma, indicePulsanteConferma + 200);
+        it('il sorgente MergeModal contiene il listener per il bottone Conferma che chiude il modal e invia completaMerge', () => {
+            expect(sorgenteMergeModal).toContain("getElementById('modalConfermaButton')");
+            const indicePulsanteConferma = sorgenteMergeModal.indexOf("getElementById('modalConfermaButton')");
+            const porzioneDopoConferma = sorgenteMergeModal.substring(indicePulsanteConferma, indicePulsanteConferma + 300);
             expect(porzioneDopoConferma).toContain('chiudiModalConferma()');
             expect(porzioneDopoConferma).toContain("command: 'completaMerge'");
         });
 
-        it('il bottone Annulla chiude il modal senza inviare messaggi', async () => {
-            await inizializzaEditor();
-            const html = pannelloWebview.webview.html;
-            expect(html).toContain("getElementById('modalAnnullaButton')");
-            const indicePulsanteAnnulla = html.indexOf("getElementById('modalAnnullaButton')");
-            const porzioneDopoAnnulla = html.substring(indicePulsanteAnnulla, indicePulsanteAnnulla + 200);
+        it('il sorgente MergeModal contiene il listener per il bottone Annulla che chiude il modal senza inviare messaggi', () => {
+            expect(sorgenteMergeModal).toContain("getElementById('modalAnnullaButton')");
+            const indicePulsanteAnnulla = sorgenteMergeModal.indexOf("getElementById('modalAnnullaButton')");
+            const porzioneDopoAnnulla = sorgenteMergeModal.substring(indicePulsanteAnnulla, indicePulsanteAnnulla + 200);
             expect(porzioneDopoAnnulla).toContain('chiudiModalConferma()');
             // Non deve esserci un postMessage nel handler di Annulla
             expect(porzioneDopoAnnulla).not.toContain('postMessage');
