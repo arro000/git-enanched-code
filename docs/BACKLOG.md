@@ -517,6 +517,7 @@ in modo da non essere obbligato a seguire il wizard se non ne ho bisogno e poter
 #### US-024: GitHub Actions per test automatici su ogni PR
 
 **Epic:** EP-006 | **Priority:** MEDIUM | **Story Points:** 2
+**Status:** REVIEW
 
 **Story**
 Come maintainer del progetto,
