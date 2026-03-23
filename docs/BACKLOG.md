@@ -551,6 +551,7 @@ in modo da rilasciare nuove versioni in modo affidabile e ripetibile senza opera
 #### US-026: CONTRIBUTING.md per contributor esterni
 
 **Epic:** EP-006 | **Priority:** LOW | **Story Points:** 2
+**Status:** REVIEW
 
 **Story**
 Come contributor open source,
