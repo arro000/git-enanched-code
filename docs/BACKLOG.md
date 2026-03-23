@@ -268,6 +268,7 @@ in modo da avere un'esperienza utente coerente e professionale con il design sys
 #### US-011: Popup di conferma Complete Merge con conflitti ancora aperti
 
 **Epic:** EP-002 | **Priority:** HIGH | **Story Points:** 1
+**Status:** REVIEW
 
 **Story**
 Come developer,

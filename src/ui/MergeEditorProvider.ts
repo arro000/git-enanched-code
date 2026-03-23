@@ -404,6 +404,49 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
         .sb-item.sb-warn { background: #cc6633; }
         .sb-item.sb-warn:hover { background: #d97540; }
         .sb-spacer { flex: 1; }
+
+        /* ── Modal overlay conferma merge ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.visibile {
+            display: flex;
+        }
+        .modal-pannello {
+            background: var(--sidebar-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            padding: 24px;
+            max-width: 440px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        .modal-pannello h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--foreground);
+            margin-bottom: 12px;
+        }
+        .modal-pannello p {
+            font-size: 13px;
+            color: var(--foreground-dim);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+        .modal-azioni {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
         .kbd { padding: 0 4px; background: rgba(255,255,255,0.15); border-radius: 2px; font-size: 10.5px; }
     </style>
 </head>
@@ -458,6 +501,17 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
         <div class="sb-item"><span>&#9888;</span><span id="sbConflictCount">— merge conflicts</span></div>
         <div class="sb-spacer"></div>
         <div class="sb-item"><span class="kbd">F7</span><span>next</span><span class="kbd">Shift+F7</span><span>prev</span></div>
+    </div>
+    <!-- US-011: Modal conferma merge con conflitti aperti -->
+    <div class="modal-overlay" id="modalConfermaOverlay">
+        <div class="modal-pannello">
+            <h3>Conflitti non risolti</h3>
+            <p id="modalConfermaMessaggio">Ci sono ancora <strong id="modalConteggioConflitti">0</strong> conflitti irrisolti. Vuoi procedere comunque?</p>
+            <div class="modal-azioni">
+                <button class="vsc-btn vsc-btn-secondary" id="modalAnnullaButton">Annulla</button>
+                <button class="vsc-btn vsc-btn-primary" id="modalConfermaButton">Conferma</button>
+            </div>
+        </div>
     </div>
     <script nonce="${nonce}" src="${monacoBaseUri}/vs/loader.js"></script>
     <script nonce="${nonce}">
@@ -788,8 +842,53 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 });
             }
 
+            // US-011: Gestione click "Complete Merge" con conferma se ci sono conflitti aperti
+            function gestisciCompletaMerge() {
+                var numeroConflittiAperti = contaConflittiAperti();
+                if (numeroConflittiAperti > 0) {
+                    var conteggioElemento = document.getElementById('modalConteggioConflitti');
+                    if (conteggioElemento) {
+                        conteggioElemento.textContent = numeroConflittiAperti.toString();
+                    }
+                    var overlay = document.getElementById('modalConfermaOverlay');
+                    if (overlay) {
+                        overlay.classList.add('visibile');
+                    }
+                } else {
+                    vscode.postMessage({ command: 'completaMerge' });
+                }
+            }
+
+            function chiudiModalConferma() {
+                var overlay = document.getElementById('modalConfermaOverlay');
+                if (overlay) {
+                    overlay.classList.remove('visibile');
+                }
+            }
+
             document.getElementById('completeMergeButton').addEventListener('click', function() {
+                gestisciCompletaMerge();
+            });
+
+            // US-011: "Conferma" chiude il modal e invia completaMerge
+            document.getElementById('modalConfermaButton').addEventListener('click', function() {
+                chiudiModalConferma();
                 vscode.postMessage({ command: 'completaMerge' });
+            });
+
+            // US-011: "Annulla" chiude il modal senza effetti collaterali
+            document.getElementById('modalAnnullaButton').addEventListener('click', function() {
+                chiudiModalConferma();
+            });
+
+            // US-011: Chiusura modal con Escape
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') { chiudiModalConferma(); }
+            });
+
+            // US-011: Chiusura modal con click sull'overlay esterno
+            document.getElementById('modalConfermaOverlay').addEventListener('click', function(e) {
+                if (e.target === this) { chiudiModalConferma(); }
             });
 
             window.addEventListener('message', function(event) {

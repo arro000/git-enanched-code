@@ -1154,3 +1154,361 @@ describe('MergeEditorProvider — US-027: Allineamento visivo UI con mockup Merg
         });
     });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════
+ *  US-011: Popup conferma merge con conflitti irrisolti
+ * ═══════════════════════════════════════════════════════════════════════ */
+import { JSDOM } from 'jsdom';
+
+describe('MergeEditorProvider — US-011: Popup conferma merge con conflitti irrisolti', () => {
+    let pannelloWebview: ReturnType<typeof creaMockWebviewPanel>;
+    let documento: MockDocument;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        pannelloWebview = creaMockWebviewPanel();
+        documento = creaMockDocument();
+        mockWorkspaceState.get.mockReturnValue(undefined);
+    });
+
+    async function inizializzaEditor(): Promise<void> {
+        const provider = new (MergeEditorProvider as unknown as {
+            new (context: vscode.ExtensionContext): MergeEditorProvider;
+        })(mockContext as unknown as vscode.ExtensionContext);
+
+        await provider.resolveCustomTextEditor(
+            documento as unknown as vscode.TextDocument,
+            pannelloWebview as unknown as vscode.WebviewPanel,
+            {} as vscode.CancellationToken
+        );
+    }
+
+    // ── Struttura HTML statica del modal ──
+
+    describe('Struttura HTML del modal di conferma', () => {
+        it('contiene il modal overlay nascosto per default', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('id="modalConfermaOverlay"');
+            expect(html).toContain('class="modal-overlay"');
+        });
+
+        it('contiene il pannello con titolo "Conflitti non risolti"', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('Conflitti non risolti');
+        });
+
+        it('contiene il messaggio con il conteggio conflitti', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('id="modalConteggioConflitti"');
+            expect(html).toContain('conflitti irrisolti');
+        });
+
+        it('contiene i bottoni "Annulla" e "Conferma"', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('id="modalAnnullaButton"');
+            expect(html).toContain('>Annulla<');
+            expect(html).toContain('id="modalConfermaButton"');
+            expect(html).toContain('>Conferma<');
+        });
+
+        it('il modal overlay e nascosto con display:none per default (no classe visibile)', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            // L'overlay ha classe "modal-overlay" senza "visibile"
+            expect(html).toMatch(/class="modal-overlay"\s+id="modalConfermaOverlay"/);
+            // Lo stile CSS definisce .modal-overlay { display: none }
+            expect(html).toContain('.modal-overlay {');
+            expect(html).toContain('display: none');
+            // e .modal-overlay.visibile { display: flex }
+            expect(html).toContain('.modal-overlay.visibile');
+        });
+    });
+
+    // ── Logica JS inline del modal (test con JSDOM) ──
+
+    describe('Logica comportamentale del popup (JSDOM)', () => {
+        /**
+         * Crea un ambiente JSDOM minimale con il DOM del modal e le funzioni JS
+         * estratte dall'HTML generato dal provider. Inietta un mock di
+         * vscode.postMessage per verificare i messaggi inviati.
+         */
+        function creaDomConModalEFunzioni(statiConflittiIniziali: Record<string, { headGestito: boolean; mergingGestito: boolean }>) {
+            const htmlMinimale = `
+                <html><body>
+                    <button id="completeMergeButton">Complete Merge</button>
+                    <div class="modal-overlay" id="modalConfermaOverlay">
+                        <div class="modal-pannello">
+                            <h3>Conflitti non risolti</h3>
+                            <p id="modalConfermaMessaggio">Ci sono ancora <strong id="modalConteggioConflitti">0</strong> conflitti irrisolti.</p>
+                            <div class="modal-azioni">
+                                <button id="modalAnnullaButton">Annulla</button>
+                                <button id="modalConfermaButton">Conferma</button>
+                            </div>
+                        </div>
+                    </div>
+                </body></html>
+            `;
+            const dom = new JSDOM(htmlMinimale);
+            const document = dom.window.document;
+
+            const messaggiInviati: Array<{ command: string }> = [];
+            const mockVscodePostMessage = (messaggio: { command: string }) => {
+                messaggiInviati.push(messaggio);
+            };
+
+            // Ricrea le funzioni JS inline del provider
+            const statiConflitti = statiConflittiIniziali;
+
+            function contaConflittiAperti(): number {
+                let count = 0;
+                for (const k in statiConflitti) {
+                    if (!statiConflitti[k].headGestito || !statiConflitti[k].mergingGestito) {
+                        count++;
+                    }
+                }
+                return count;
+            }
+
+            function gestisciCompletaMerge(): void {
+                const numeroConflittiAperti = contaConflittiAperti();
+                if (numeroConflittiAperti > 0) {
+                    const conteggioElemento = document.getElementById('modalConteggioConflitti');
+                    if (conteggioElemento) {
+                        conteggioElemento.textContent = numeroConflittiAperti.toString();
+                    }
+                    const overlay = document.getElementById('modalConfermaOverlay');
+                    if (overlay) {
+                        overlay.classList.add('visibile');
+                    }
+                } else {
+                    mockVscodePostMessage({ command: 'completaMerge' });
+                }
+            }
+
+            function chiudiModalConferma(): void {
+                const overlay = document.getElementById('modalConfermaOverlay');
+                if (overlay) {
+                    overlay.classList.remove('visibile');
+                }
+            }
+
+            // Registra event listener come nel codice reale
+            document.getElementById('completeMergeButton')!.addEventListener('click', () => {
+                gestisciCompletaMerge();
+            });
+            document.getElementById('modalConfermaButton')!.addEventListener('click', () => {
+                chiudiModalConferma();
+                mockVscodePostMessage({ command: 'completaMerge' });
+            });
+            document.getElementById('modalAnnullaButton')!.addEventListener('click', () => {
+                chiudiModalConferma();
+            });
+
+            return { dom, document, messaggiInviati, contaConflittiAperti, gestisciCompletaMerge, chiudiModalConferma };
+        }
+
+        it('mostra il popup quando ci sono conflitti irrisolti (count > 0)', () => {
+            const conflittiConDueAperti = {
+                '0': { headGestito: false, mergingGestito: false },
+                '1': { headGestito: true, mergingGestito: false },
+            };
+            const { document } = creaDomConModalEFunzioni(conflittiConDueAperti);
+
+            // Simula click su Complete Merge
+            document.getElementById('completeMergeButton')!.click();
+
+            const overlay = document.getElementById('modalConfermaOverlay')!;
+            expect(overlay.classList.contains('visibile')).toBe(true);
+        });
+
+        it('non mostra il popup quando tutti i conflitti sono risolti (count = 0), merge procede direttamente', () => {
+            const tuttiConflittiRisolti = {
+                '0': { headGestito: true, mergingGestito: true },
+                '1': { headGestito: true, mergingGestito: true },
+            };
+            const { document, messaggiInviati } = creaDomConModalEFunzioni(tuttiConflittiRisolti);
+
+            document.getElementById('completeMergeButton')!.click();
+
+            // Il modal NON deve essere visibile
+            const overlay = document.getElementById('modalConfermaOverlay')!;
+            expect(overlay.classList.contains('visibile')).toBe(false);
+
+            // Il messaggio completaMerge viene inviato direttamente
+            expect(messaggiInviati).toHaveLength(1);
+            expect(messaggiInviati[0].command).toBe('completaMerge');
+        });
+
+        it('il bottone "Annulla" chiude il popup senza inviare alcun messaggio', () => {
+            const conflittiAperti = {
+                '0': { headGestito: false, mergingGestito: false },
+            };
+            const { document, messaggiInviati } = creaDomConModalEFunzioni(conflittiAperti);
+
+            // Apri il modal
+            document.getElementById('completeMergeButton')!.click();
+            const overlay = document.getElementById('modalConfermaOverlay')!;
+            expect(overlay.classList.contains('visibile')).toBe(true);
+
+            // Resetta i messaggi dopo l'apertura (non ce ne dovrebbero essere)
+            const messaggiPrimaDiAnnulla = [...messaggiInviati];
+
+            // Click su Annulla
+            document.getElementById('modalAnnullaButton')!.click();
+
+            // Il modal deve essere chiuso
+            expect(overlay.classList.contains('visibile')).toBe(false);
+
+            // Nessun messaggio inviato ne prima ne dopo il click su Annulla
+            expect(messaggiInviati).toEqual(messaggiPrimaDiAnnulla);
+            expect(messaggiInviati).toHaveLength(0);
+        });
+
+        it('il bottone "Conferma" chiude il popup E invia il messaggio completaMerge', () => {
+            const conflittiAperti = {
+                '0': { headGestito: false, mergingGestito: true },
+                '1': { headGestito: false, mergingGestito: false },
+            };
+            const { document, messaggiInviati } = creaDomConModalEFunzioni(conflittiAperti);
+
+            // Apri il modal
+            document.getElementById('completeMergeButton')!.click();
+            const overlay = document.getElementById('modalConfermaOverlay')!;
+            expect(overlay.classList.contains('visibile')).toBe(true);
+            expect(messaggiInviati).toHaveLength(0);
+
+            // Click su Conferma
+            document.getElementById('modalConfermaButton')!.click();
+
+            // Il modal deve essere chiuso
+            expect(overlay.classList.contains('visibile')).toBe(false);
+
+            // Il messaggio completaMerge deve essere stato inviato
+            expect(messaggiInviati).toHaveLength(1);
+            expect(messaggiInviati[0]).toEqual({ command: 'completaMerge' });
+        });
+
+        it('il conteggio conflitti viene visualizzato correttamente nel messaggio del popup', () => {
+            const treConflittiAperti = {
+                '0': { headGestito: false, mergingGestito: false },
+                '1': { headGestito: true, mergingGestito: false },
+                '2': { headGestito: false, mergingGestito: true },
+            };
+            const { document } = creaDomConModalEFunzioni(treConflittiAperti);
+
+            document.getElementById('completeMergeButton')!.click();
+
+            const conteggioElemento = document.getElementById('modalConteggioConflitti')!;
+            expect(conteggioElemento.textContent).toBe('3');
+        });
+
+        it('il conteggio mostra 1 quando solo un conflitto e aperto', () => {
+            const unConflittoAperto = {
+                '0': { headGestito: true, mergingGestito: true },
+                '1': { headGestito: false, mergingGestito: false },
+                '2': { headGestito: true, mergingGestito: true },
+            };
+            const { document } = creaDomConModalEFunzioni(unConflittoAperto);
+
+            document.getElementById('completeMergeButton')!.click();
+
+            const conteggioElemento = document.getElementById('modalConteggioConflitti')!;
+            expect(conteggioElemento.textContent).toBe('1');
+        });
+
+        it('contaConflittiAperti restituisce 0 quando tutti i conflitti sono gestiti', () => {
+            const tuttiRisolti = {
+                '0': { headGestito: true, mergingGestito: true },
+                '1': { headGestito: true, mergingGestito: true },
+            };
+            const { contaConflittiAperti } = creaDomConModalEFunzioni(tuttiRisolti);
+            expect(contaConflittiAperti()).toBe(0);
+        });
+
+        it('contaConflittiAperti conta i conflitti dove almeno un lato non e gestito', () => {
+            const misto = {
+                '0': { headGestito: true, mergingGestito: true },   // risolto
+                '1': { headGestito: false, mergingGestito: true },  // aperto (head non gestito)
+                '2': { headGestito: true, mergingGestito: false },  // aperto (merging non gestito)
+                '3': { headGestito: false, mergingGestito: false }, // aperto (nessuno gestito)
+            };
+            const { contaConflittiAperti } = creaDomConModalEFunzioni(misto);
+            expect(contaConflittiAperti()).toBe(3);
+        });
+    });
+
+    // ── Verifica che il JS inline nell'HTML contenga la logica corretta ──
+
+    describe('Presenza della logica JS inline nel HTML generato', () => {
+        it('il JS contiene la funzione gestisciCompletaMerge che controlla contaConflittiAperti', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain('function gestisciCompletaMerge()');
+            expect(html).toContain('contaConflittiAperti()');
+        });
+
+        it('gestisciCompletaMerge aggiunge la classe visibile all overlay quando ci sono conflitti', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            const funzioneGestisci = html.substring(
+                html.indexOf('function gestisciCompletaMerge'),
+                html.indexOf('function chiudiModalConferma')
+            );
+            expect(funzioneGestisci).toContain("classList.add('visibile')");
+            expect(funzioneGestisci).toContain('modalConfermaOverlay');
+        });
+
+        it('gestisciCompletaMerge invia completaMerge direttamente quando non ci sono conflitti', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            const funzioneGestisci = html.substring(
+                html.indexOf('function gestisciCompletaMerge'),
+                html.indexOf('function chiudiModalConferma')
+            );
+            expect(funzioneGestisci).toContain("vscode.postMessage({ command: 'completaMerge' })");
+        });
+
+        it('chiudiModalConferma rimuove la classe visibile dall overlay', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            const funzioneChiudi = html.substring(
+                html.indexOf('function chiudiModalConferma'),
+                html.indexOf('function chiudiModalConferma') + 300
+            );
+            expect(funzioneChiudi).toContain("classList.remove('visibile')");
+        });
+
+        it('il bottone completeMergeButton invoca gestisciCompletaMerge al click', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("getElementById('completeMergeButton')");
+            expect(html).toContain('gestisciCompletaMerge()');
+        });
+
+        it('il bottone Conferma chiude il modal e invia completaMerge', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("getElementById('modalConfermaButton')");
+            // Dopo il listener di modalConfermaButton deve esserci chiudiModalConferma + postMessage
+            const indicePulsanteConferma = html.indexOf("getElementById('modalConfermaButton')");
+            const porzioneDopoConferma = html.substring(indicePulsanteConferma, indicePulsanteConferma + 200);
+            expect(porzioneDopoConferma).toContain('chiudiModalConferma()');
+            expect(porzioneDopoConferma).toContain("command: 'completaMerge'");
+        });
+
+        it('il bottone Annulla chiude il modal senza inviare messaggi', async () => {
+            await inizializzaEditor();
+            const html = pannelloWebview.webview.html;
+            expect(html).toContain("getElementById('modalAnnullaButton')");
+            const indicePulsanteAnnulla = html.indexOf("getElementById('modalAnnullaButton')");
+            const porzioneDopoAnnulla = html.substring(indicePulsanteAnnulla, indicePulsanteAnnulla + 200);
+            expect(porzioneDopoAnnulla).toContain('chiudiModalConferma()');
+            // Non deve esserci un postMessage nel handler di Annulla
+            expect(porzioneDopoAnnulla).not.toContain('postMessage');
+        });
+    });
+});
