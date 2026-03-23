@@ -534,6 +534,7 @@ in modo da garantire che nessuna modifica rompa la codebase prima del merge e da
 #### US-025: Pubblicazione automatica su VS Code Marketplace e Open VSX
 
 **Epic:** EP-006 | **Priority:** HIGH | **Story Points:** 3
+**Status:** REVIEW
 
 **Story**
 Come maintainer del progetto,

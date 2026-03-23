@@ -1,0 +1,69 @@
+# Publish — VS Code Marketplace & Open VSX Registry
+#
+# Triggered on version tags (v*.*.*).
+# Runs the full validation pipeline (type-check, test, build) before publishing.
+#
+# ═══════════════════════════════════════════════════════════════
+# REQUIRED SECRETS (configure in GitHub → Settings → Secrets):
+#
+#   VSCE_PAT  — Personal Access Token for Azure DevOps / VS Code Marketplace
+#               Generate at: https://dev.azure.com → User Settings → Personal Access Tokens
+#               Required scope: Marketplace (Manage)
+#
+#   OVSX_PAT  — Access Token for Open VSX Registry
+#               Generate at: https://open-vsx.org → User Settings → Access Tokens
+#
+# Without these secrets configured, the publish steps will fail.
+# ═══════════════════════════════════════════════════════════════
+
+name: Publish — Marketplace & Open VSX
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Validate & Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: TypeScript type-check
+        run: npm run compile
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Package .vsix
+        run: npx vsce package --no-update-package-json
+        id: package
+        # Produces git-enhanced-*.vsix in the workspace root
+
+      - name: Publish to VS Code Marketplace
+        run: npx vsce publish --packagePath *.vsix --no-update-package-json
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Publish to Open VSX Registry
+        run: npx ovsx publish *.vsix --pat ${{ secrets.OVSX_PAT }}
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
