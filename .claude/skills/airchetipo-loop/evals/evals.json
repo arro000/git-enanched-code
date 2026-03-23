@@ -1,0 +1,23 @@
+{
+  "skill_name": "airchetipo-loop",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "/airchetipo-loop \"Marca il prossimo task TODO come DONE nel file TODO.md, cambiando '[ ] TODO' in '[x] DONE'\" --max-loop 5 --stop-when \"tutti i task in TODO.md sono in DONE\"",
+      "expected_output": "3 iterazioni eseguite, loop terminato con status 'completed'. Tutti i 3 task marcati come DONE. File di stato creato con riepilogo.",
+      "files": ["TODO.md con 3 task TODO"]
+    },
+    {
+      "id": 2,
+      "prompt": "/airchetipo-loop \"Marca il prossimo task TODO come DONE nel file TODO.md, cambiando '[ ] TODO' in '[x] DONE'\" --max-loop 3 --stop-when \"tutti i task in TODO.md sono in DONE\"",
+      "expected_output": "3 iterazioni eseguite, loop terminato con status 'max_reached'. Solo 3 su 10 task marcati come DONE. Suggerimento di aumentare il limite.",
+      "files": ["TODO.md con 10 task TODO"]
+    },
+    {
+      "id": 3,
+      "prompt": "/airchetipo-loop \"Leggi il prossimo dato dal file DATI.csv e aggiungilo a REPORT.md\" --max-loop 3 --stop-when \"tutti i dati sono stati riportati\"",
+      "expected_output": "Il subagent fallisce perché DATI.csv non esiste. Il loop si ferma e chiede all'utente come procedere (riprova/salta/ferma).",
+      "files": ["TODO.md presente ma DATI.csv e REPORT.md assenti"]
+    }
+  ]
+}

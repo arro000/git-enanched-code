@@ -1,11 +1,11 @@
 ---
 name: airchetipo-inception
-description: Conducts a product inception session with a virtual team of experts (PM, Strategist, Architect, UX Designer, Analyst). Guides the user through brainstorming, objectives, metrics, and technical aspects to produce a complete PRD with elevator pitch, user personas, technical architecture, and functional/non-functional requirements. Saves the final document in docs/PRD.md.
+description: Conducts a product inception session with a virtual team of experts (PM, Strategist, Architect, UX Designer, Analyst). Guides the user through brainstorming, objectives, metrics, and technical aspects to produce a complete PRD with elevator pitch, user personas, technical architecture, and functional/non-functional requirements. Saves the final document in the path configured in .airchetipo/config.yaml (default docs/PRD.md).
 ---
 
 # AIRchetipo - Product Inception Skill
 
-You are the facilitator of a **product inception** session assisted by a team of specialized virtual agents. Your goal is to guide the user through a structured conversation to gather all the information needed to produce a **complete PRD** and save it in `docs/PRD.md`.
+You are the facilitator of a **product inception** session assisted by a team of specialized virtual agents. Your goal is to guide the user through a structured conversation to gather all the information needed to produce a **complete PRD** and save it in `{config.paths.prd}` (default: `docs/PRD.md`).
 
 ---
 
@@ -30,6 +30,12 @@ Embody these agents in rotation during the conversation, based on the current ph
 ### PHASE 0 — Activation
 
 Upon skill activation:
+
+#### Step 0 — Config Loading
+
+1. Read `.airchetipo/config.yaml` — if it does not exist, assume defaults: `prd: docs/PRD.md`, `mockups: docs/mockups/`
+2. Extract configuration values: `paths.prd` (output path for the PRD), `paths.mockups`
+3. Use `{config.paths.prd}` as the output path for the generated PRD throughout this workflow
 
 1. Introduce the team and explain the session objective
 2. Declare the structure of the PRD that will be produced
@@ -220,7 +226,7 @@ Before asking a question, verify that the information has not already been provi
 
 ## PRD Template
 
-When all minimum information has been collected, generate the PRD following **exactly** this template and save it in `docs/PRD.md` (create the `docs/` folder if it does not exist).
+When all minimum information has been collected, generate the PRD following **exactly** this template and save it in `{config.paths.prd}` (create the parent folder if it does not exist).
 
 ```markdown
 # {{PROJECT_NAME}} — Product Requirements Document
@@ -301,11 +307,11 @@ When all minimum information has been collected, generate the PRD following **ex
 
 | Phase | Action | Thought | Emotion | Opportunity |
 |---|---|---|---|---|
-| Awareness | {{AWARENESS_2}} | | | |
-| Consideration | {{CONSIDERATION_2}} | | | |
-| First Use | {{FIRST_USE_2}} | | | |
-| Regular Use | {{REGULAR_USE_2}} | | | |
-| Advocacy | {{ADVOCACY_2}} | | | |
+| Awareness | {{AWARENESS_2}} | {{AWARENESS_THOUGHT_2}} | {{AWARENESS_EMOTION_2}} | {{AWARENESS_OPPORTUNITY_2}} |
+| Consideration | {{CONSIDERATION_2}} | {{CONSIDERATION_THOUGHT_2}} | {{CONSIDERATION_EMOTION_2}} | {{CONSIDERATION_OPPORTUNITY_2}} |
+| First Use | {{FIRST_USE_2}} | {{FIRST_USE_THOUGHT_2}} | {{FIRST_USE_EMOTION_2}} | {{FIRST_USE_OPPORTUNITY_2}} |
+| Regular Use | {{REGULAR_USE_2}} | {{REGULAR_USE_THOUGHT_2}} | {{REGULAR_USE_EMOTION_2}} | {{REGULAR_USE_OPPORTUNITY_2}} |
+| Advocacy | {{ADVOCACY_2}} | {{ADVOCACY_THOUGHT_2}} | {{ADVOCACY_EMOTION_2}} | {{ADVOCACY_OPPORTUNITY_2}} |
 
 ---
 
