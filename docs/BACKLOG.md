@@ -326,6 +326,7 @@ in modo da risolvere automaticamente anche i conflitti che diff3 non riesce a ge
 #### US-014: Bacchetta magica — applicazione di tutte le risoluzioni automatiche
 
 **Epic:** EP-003 | **Priority:** HIGH | **Story Points:** 2
+**Status:** REVIEW
 
 **Story**
 Come Sara (Full Stack Developer),

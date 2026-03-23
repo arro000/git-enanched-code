@@ -74,8 +74,9 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 contenutoOriginale
             );
 
-            // US-012: Auto-resolve con diff3 — pre-applica modifiche non sovrapposte
+            // US-012/US-014: Auto-resolve con diff3 e AST
             let risultatoDiff3: RisultatoAnalisiDiff3 | null = null;
+            let risoluzionePending: Array<{ indiceConflitto: number; contenutoRisolto: string; sorgente: string }> = [];
 
             if (!statoEsistente) {
                 // Create initial state for a new merge session
@@ -86,18 +87,8 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                     numeroConflitti
                 );
 
-                // US-012: Layer 1 — diff3 auto-resolve
+                // US-012: Layer 1 — diff3 auto-resolve (compute but don't apply yet)
                 risultatoDiff3 = this.diff3Resolver.risolviConflitti(conflittiParsati);
-                for (const risoluzione of risultatoDiff3.conflittiRisolti) {
-                    if (risoluzione.risolvibileAutomaticamente && risoluzione.contenutoRisolto !== null) {
-                        const statoConflitto = statoIniziale.statiConflitti[risoluzione.indiceConflitto];
-                        if (statoConflitto) {
-                            statoConflitto.risolto = true;
-                            statoConflitto.contenutoRisolto = risoluzione.contenutoRisolto;
-                            statoConflitto.sorgenteApplicata = 'diff3-auto';
-                        }
-                    }
-                }
 
                 // US-013: Layer 2 — AST analysis per conflitti residui
                 const conflittiNonRisolti = conflittiParsati.filter((_, indice) => {
@@ -106,24 +97,39 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                            ris.motivoNonRisolto === 'sovrapposizione-modifiche';
                 });
 
+                let risultatoAst: Awaited<ReturnType<AnalizzatoreAstConflitti['analizzaConflitti']>> | null = null;
                 if (conflittiNonRisolti.length > 0) {
                     try {
-                        const risultatoAst = await this.analizzatoreAst.analizzaConflitti(
+                        risultatoAst = await this.analizzatoreAst.analizzaConflitti(
                             conflittiNonRisolti,
                             linguaggioId
                         );
-                        for (const risoluzione of risultatoAst.conflittiAnalizzati) {
-                            if (risoluzione.risolvibileAutomaticamente && risoluzione.contenutoRisolto !== null) {
-                                const statoConflitto = statoIniziale.statiConflitti[risoluzione.indiceConflitto];
-                                if (statoConflitto) {
-                                    statoConflitto.risolto = true;
-                                    statoConflitto.contenutoRisolto = risoluzione.contenutoRisolto;
-                                    statoConflitto.sorgenteApplicata = 'ast-auto';
-                                }
-                            }
-                        }
                     } catch {
-                        // AST analysis failure is non-fatal — conflicts stay unresolved
+                        // AST analysis failure is non-fatal
+                    }
+                }
+
+                // US-014: Collect all pending resolutions (NOT applied until magic wand click)
+
+                for (const ris of risultatoDiff3.conflittiRisolti) {
+                    if (ris.risolvibileAutomaticamente && ris.contenutoRisolto !== null) {
+                        risoluzionePending.push({
+                            indiceConflitto: ris.indiceConflitto,
+                            contenutoRisolto: ris.contenutoRisolto,
+                            sorgente: 'diff3-auto',
+                        });
+                    }
+                }
+
+                if (risultatoAst) {
+                    for (const ris of risultatoAst.conflittiAnalizzati) {
+                        if (ris.risolvibileAutomaticamente && ris.contenutoRisolto !== null) {
+                            risoluzionePending.push({
+                                indiceConflitto: ris.indiceConflitto,
+                                contenutoRisolto: ris.contenutoRisolto,
+                                sorgente: 'ast-auto',
+                            });
+                        }
                     }
                 }
 
@@ -142,16 +148,12 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                             righe: righeDocumento,
                             conflitti: conflittiParsati,
                         });
-                        // US-012: Send auto-resolved conflicts to webview
-                        if (risultatoDiff3 && risultatoDiff3.numeroRisoltiAutomaticamente > 0) {
+                        // US-014: Send pending resolutions to webview (not applied yet)
+                        if (risoluzionePending.length > 0) {
                             webviewPanel.webview.postMessage({
-                                command: 'conflittiAutoRisolti',
-                                risoluzioni: risultatoDiff3.conflittiRisolti
-                                    .filter(r => r.risolvibileAutomaticamente)
-                                    .map(r => ({
-                                        indiceConflitto: r.indiceConflitto,
-                                        contenutoRisolto: r.contenutoRisolto,
-                                    })),
+                                command: 'risoluzioniPending',
+                                risoluzioni: risoluzionePending,
+                                conteggio: risoluzionePending.length,
                             });
                         }
                         // US-005: Send restored state if available
@@ -182,6 +184,24 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                                 successo: false,
                                 messaggioErrore: risultato.messaggioErrore,
                             });
+                        }
+                    } else if (messaggio.command === 'applicaBacchettaMagica') {
+                        // US-014: Apply all pending auto-resolutions
+                        if (messaggio.risoluzioni && Array.isArray(messaggio.risoluzioni)) {
+                            const statoCorrente = await this.stateManager.recuperaStato(
+                                document.uri.fsPath, document.getText()
+                            );
+                            if (statoCorrente) {
+                                for (const ris of messaggio.risoluzioni) {
+                                    const statoConflitto = statoCorrente.statiConflitti[ris.indiceConflitto];
+                                    if (statoConflitto && !statoConflitto.risolto) {
+                                        statoConflitto.risolto = true;
+                                        statoConflitto.contenutoRisolto = ris.contenutoRisolto;
+                                        statoConflitto.sorgenteApplicata = ris.sorgente ?? 'diff3-auto';
+                                    }
+                                }
+                                await this.stateManager.salvaStato(statoCorrente);
+                            }
                         }
                     } else if (messaggio.command === 'aggiornaStato') {
                         // US-005: Save partial resolution state from webview
@@ -521,7 +541,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             <span>conflicts remaining</span>
         </div>
         <div class="spacer"></div>
-        <button class="vsc-btn vsc-btn-secondary" disabled>&#10022; Auto-resolve</button>
+        <button class="vsc-btn vsc-btn-secondary" id="btnBacchettaMagica" disabled>&#10022; Auto-resolve</button>
         <button class="vsc-btn vsc-btn-primary" id="completeMergeButton">&#10003; Complete Merge</button>
     </div>
     <div class="col-headers">
@@ -967,8 +987,56 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                     if (message.stato && message.stato.contenutoColonnaCentrale && monacoEditorInstance) {
                         monacoEditorInstance.setValue(message.stato.contenutoColonnaCentrale);
                     }
+                } else if (message.command === 'risoluzioniPending') {
+                    // US-014: Store pending resolutions and enable magic wand button
+                    window._risoluzioniPending = message.risoluzioni || [];
+                    var btnBacchetta = document.getElementById('btnBacchettaMagica');
+                    if (btnBacchetta && window._risoluzioniPending.length > 0) {
+                        btnBacchetta.disabled = false;
+                        btnBacchetta.textContent = '\\u2726 Auto-resolve (' + window._risoluzioniPending.length + ')';
+                    }
                 }
             });
+
+            // US-014: Magic wand button click handler
+            var btnBacchetta = document.getElementById('btnBacchettaMagica');
+            if (btnBacchetta) {
+                btnBacchetta.addEventListener('click', function() {
+                    if (!window._risoluzioniPending || window._risoluzioniPending.length === 0) return;
+
+                    // Apply each pending resolution to the result column in Monaco Editor
+                    // This makes the action undoable via Ctrl+Z
+                    var risoluzioni = window._risoluzioniPending;
+
+                    // Notify backend to update state
+                    vscode.postMessage({
+                        command: 'applicaBacchettaMagica',
+                        risoluzioni: risoluzioni
+                    });
+
+                    // Apply in webview (update conflict zone visuals)
+                    risoluzioni.forEach(function(ris) {
+                        // Mark conflict as resolved in the UI
+                        var conflictZone = document.querySelector('[data-conflict-index="' + ris.indiceConflitto + '"]');
+                        if (conflictZone) {
+                            conflictZone.classList.add('resolved');
+                            conflictZone.classList.remove('pending');
+                        }
+                    });
+
+                    // Update conflict counter
+                    var pendingCount = document.querySelectorAll('.conflict-zone:not(.resolved)').length;
+                    var badge = document.querySelector('.conflict-badge-count');
+                    if (badge) {
+                        badge.textContent = pendingCount + ' conflicts remaining';
+                    }
+
+                    // Disable the button after use
+                    btnBacchetta.disabled = true;
+                    btnBacchetta.textContent = '\\u2726 Auto-resolve (done)';
+                    window._risoluzioniPending = [];
+                });
+            }
 
             vscode.postMessage({ command: 'webviewPronta' });
         })();
