@@ -4,6 +4,7 @@ import { FallbackService } from '../core/git/FallbackService';
 import { MergeSessionStateManager } from '../core/merge/MergeSessionStateManager';
 import { countConflicts } from '../core/git/ConflictDetector';
 import { parseConflicts } from '../core/git/ConflictParser';
+import { Diff3Resolver, RisultatoAnalisiDiff3 } from '../core/merge/Diff3Resolver';
 
 export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
     public static readonly VIEW_TYPE = 'git-enhanced.mergeEditor';
@@ -24,6 +25,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
 
     private readonly mergeCompletionService = new MergeCompletionService();
     private readonly fallbackService = new FallbackService();
+    private readonly diff3Resolver = new Diff3Resolver();
     private readonly stateManager: MergeSessionStateManager;
 
     constructor(private readonly context: vscode.ExtensionContext) {
@@ -70,6 +72,9 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 contenutoOriginale
             );
 
+            // US-012: Auto-resolve con diff3 — pre-applica modifiche non sovrapposte
+            let risultatoDiff3: RisultatoAnalisiDiff3 | null = null;
+
             if (!statoEsistente) {
                 // Create initial state for a new merge session
                 const numeroConflitti = countConflicts(document);
@@ -78,6 +83,19 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                     contenutoOriginale,
                     numeroConflitti
                 );
+
+                risultatoDiff3 = this.diff3Resolver.risolviConflitti(conflittiParsati);
+                for (const risoluzione of risultatoDiff3.conflittiRisolti) {
+                    if (risoluzione.risolvibileAutomaticamente && risoluzione.contenutoRisolto !== null) {
+                        const statoConflitto = statoIniziale.statiConflitti[risoluzione.indiceConflitto];
+                        if (statoConflitto) {
+                            statoConflitto.risolto = true;
+                            statoConflitto.contenutoRisolto = risoluzione.contenutoRisolto;
+                            statoConflitto.sorgenteApplicata = 'diff3-auto';
+                        }
+                    }
+                }
+
                 await this.stateManager.salvaStato(statoIniziale);
             }
 
@@ -93,6 +111,18 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                             righe: righeDocumento,
                             conflitti: conflittiParsati,
                         });
+                        // US-012: Send auto-resolved conflicts to webview
+                        if (risultatoDiff3 && risultatoDiff3.numeroRisoltiAutomaticamente > 0) {
+                            webviewPanel.webview.postMessage({
+                                command: 'conflittiAutoRisolti',
+                                risoluzioni: risultatoDiff3.conflittiRisolti
+                                    .filter(r => r.risolvibileAutomaticamente)
+                                    .map(r => ({
+                                        indiceConflitto: r.indiceConflitto,
+                                        contenutoRisolto: r.contenutoRisolto,
+                                    })),
+                            });
+                        }
                         // US-005: Send restored state if available
                         if (statoEsistente) {
                             webviewPanel.webview.postMessage({

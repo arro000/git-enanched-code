@@ -292,6 +292,7 @@ in modo da evitare di completare accidentalmente un merge lasciando conflitti ir
 #### US-012: Auto-resolve con diff3 (Layer 1)
 
 **Epic:** EP-003 | **Priority:** HIGH | **Story Points:** 3
+**Status:** REVIEW
 
 **Story**
 Come Marco (Senior Developer),
