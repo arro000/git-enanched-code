@@ -358,6 +358,7 @@ in modo da sapere quanti conflitti verranno risolti automaticamente e con quale 
 #### US-016: Supporto grammar Tree-sitter per tutti i linguaggi target
 
 **Epic:** EP-003 | **Priority:** HIGH | **Story Points:** 3
+**Status:** REVIEW
 
 **Story**
 Come developer,

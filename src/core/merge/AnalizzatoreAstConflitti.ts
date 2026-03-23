@@ -35,6 +35,9 @@ const LINGUAGGI_SUPPORTATI: Record<string, { pacchetto: string; nomeFile: string
     'javascript': { pacchetto: 'tree-sitter-javascript', nomeFile: 'tree-sitter-javascript.wasm' },
     'typescriptreact': { pacchetto: 'tree-sitter-typescript', nomeFile: 'tree-sitter-typescript.wasm' },
     'javascriptreact': { pacchetto: 'tree-sitter-javascript', nomeFile: 'tree-sitter-javascript.wasm' },
+    'csharp': { pacchetto: 'tree-sitter-c-sharp', nomeFile: 'tree-sitter-c_sharp.wasm' },
+    'java': { pacchetto: 'tree-sitter-java', nomeFile: 'tree-sitter-java.wasm' },
+    'rust': { pacchetto: 'tree-sitter-rust', nomeFile: 'tree-sitter-rust.wasm' },
 };
 
 /**
