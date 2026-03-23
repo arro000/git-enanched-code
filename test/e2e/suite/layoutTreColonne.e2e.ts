@@ -21,12 +21,33 @@ import * as os from 'os';
  * is covered by the unit tests which inspect the generated HTML directly.
  */
 
+async function waitForCondition(
+    conditionFn: () => boolean,
+    timeoutMs: number,
+    pollIntervalMs: number = 50
+): Promise<boolean> {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeoutMs) {
+        if (conditionFn()) {
+            return true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    }
+    return conditionFn();
+}
+
 suite('US-006: Layout 3 colonne — E2E', () => {
     let tempDir: string;
     let conflictFilePath: string;
 
-    suiteSetup(() => {
+    suiteSetup(async () => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-enhanced-us006-'));
+
+        // Ensure the extension is activated before running tests
+        const extension = vscode.extensions.getExtension('signori-agenti.git-enhanced');
+        if (extension && !extension.isActive) {
+            await extension.activate();
+        }
     });
 
     setup(() => {
@@ -60,20 +81,18 @@ suite('US-006: Layout 3 colonne — E2E', () => {
         const uri = vscode.Uri.file(conflictFilePath);
         await vscode.commands.executeCommand('vscode.openWith', uri, 'git-enhanced.mergeEditor');
 
-        // Wait briefly for the editor to open
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        // Verify a tab is open for the file
-        const tabGroupeAperte = vscode.window.tabGroups.all;
-        const tabConEditorCustom = tabGroupeAperte.flatMap(g => g.tabs).find(tab => {
-            if (tab.input instanceof vscode.TabInputCustom) {
-                return tab.input.uri.fsPath === conflictFilePath;
-            }
-            return false;
-        });
+        // Poll until the custom editor tab appears
+        // On Windows, fsPath may differ in drive letter casing, so compare lowercase
+        const percorsoAtteso = conflictFilePath.toLowerCase();
+        const trovato = await waitForCondition(() => {
+            return vscode.window.tabGroups.all.flatMap(g => g.tabs).some(tab =>
+                tab.input instanceof vscode.TabInputCustom &&
+                tab.input.uri.fsPath.toLowerCase() === percorsoAtteso
+            );
+        }, 2000);
 
         assert.ok(
-            tabConEditorCustom,
+            trovato,
             'Expected a custom editor tab to be open for the conflict file'
         );
     });
@@ -81,17 +100,14 @@ suite('US-006: Layout 3 colonne — E2E', () => {
     test('merge editor webview has scripts enabled for interactive layout', async () => {
         const uri = vscode.Uri.file(conflictFilePath);
         await vscode.commands.executeCommand('vscode.openWith', uri, 'git-enhanced.mergeEditor');
-        await new Promise(resolve => setTimeout(resolve, 300));
 
-        // The custom editor should be registered and active.
-        // We can't directly access webview.options from E2E, but we verify
-        // the editor opens without error (enableScripts is set internally).
-        const tabGroupeAperte = vscode.window.tabGroups.all;
-        const tabConEditorCustom = tabGroupeAperte.flatMap(g => g.tabs).find(tab =>
-            tab.input instanceof vscode.TabInputCustom &&
-            tab.input.viewType === 'git-enhanced.mergeEditor'
-        );
+        const trovato = await waitForCondition(() => {
+            return vscode.window.tabGroups.all.flatMap(g => g.tabs).some(tab =>
+                tab.input instanceof vscode.TabInputCustom &&
+                tab.input.viewType === 'git-enhanced.mergeEditor'
+            );
+        }, 2000);
 
-        assert.ok(tabConEditorCustom, 'Custom editor tab should be open with correct viewType');
+        assert.ok(trovato, 'Custom editor tab should be open with correct viewType');
     });
 });
