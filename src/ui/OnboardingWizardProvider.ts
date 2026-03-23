@@ -1,0 +1,855 @@
+import * as vscode from 'vscode';
+
+const CHIAVE_ONBOARDING_COMPLETATO = 'git-enhanced.onboardingCompletato';
+
+export class OnboardingWizardProvider {
+    private pannello: vscode.WebviewPanel | undefined;
+    private readonly contesto: vscode.ExtensionContext;
+
+    constructor(contesto: vscode.ExtensionContext) {
+        this.contesto = contesto;
+    }
+
+    deveAprireWizardAlPrimoAvvio(): boolean {
+        const completato = this.contesto.globalState.get<boolean>(CHIAVE_ONBOARDING_COMPLETATO);
+        return !completato;
+    }
+
+    segnaWizardCompletato(): Thenable<void> {
+        return this.contesto.globalState.update(CHIAVE_ONBOARDING_COMPLETATO, true);
+    }
+
+    apriWizard(): void {
+        if (this.pannello) {
+            this.pannello.reveal(vscode.ViewColumn.One);
+            return;
+        }
+
+        this.pannello = vscode.window.createWebviewPanel(
+            'git-enhanced.onboarding',
+            'Get Started — Git Enhanced',
+            vscode.ViewColumn.One,
+            {
+                enableScripts: true,
+                localResourceRoots: [this.contesto.extensionUri],
+            }
+        );
+
+        this.pannello.webview.html = this.generaHtmlWizard(this.pannello.webview);
+
+        this.pannello.webview.onDidReceiveMessage(
+            (messaggio) => this.gestisciMessaggio(messaggio),
+            undefined,
+            this.contesto.subscriptions
+        );
+
+        this.pannello.onDidDispose(() => {
+            this.pannello = undefined;
+        }, undefined, this.contesto.subscriptions);
+    }
+
+    private async gestisciMessaggio(messaggio: { type: string; modalita?: string }): Promise<void> {
+        switch (messaggio.type) {
+            case 'salvaModalitaAttivazione': {
+                const modalita = messaggio.modalita === 'manual' ? 'manual' : 'auto';
+                await vscode.workspace.getConfiguration('gitEnhanced').update(
+                    'activationMode',
+                    modalita,
+                    vscode.ConfigurationTarget.Global
+                );
+                break;
+            }
+            case 'wizardCompletato':
+                await this.segnaWizardCompletato();
+                this.pannello?.dispose();
+                break;
+            case 'wizardSkippato':
+                await this.segnaWizardCompletato();
+                this.pannello?.dispose();
+                break;
+            default:
+                // Messaggi con tipo sconosciuto vengono ignorati silenziosamente
+                break;
+        }
+    }
+
+    private generaHtmlWizard(webview: vscode.Webview): string {
+        const nonce = generaNonce();
+
+        return /*html*/ `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
+  <title>Get Started — Git Enhanced</title>
+  <style nonce="${nonce}">
+    :root {
+      --editor-bg:       #1e1e1e;
+      --sidebar-bg:      #252526;
+      --tab-bar-bg:      #252526;
+      --tab-active-bg:   #1e1e1e;
+      --tab-active-top:  #007acc;
+      --panel-border:    rgba(128,128,128,0.35);
+      --border:          #3c3c3c;
+      --border-light:    #454545;
+      --section-bg:      #2a2d2e;
+      --item-hover:      #2a2d2e;
+      --item-selected:   #04395e;
+      --item-selected-border: #007acc;
+      --foreground:      #d4d4d4;
+      --foreground-dim:  #cccccc;
+      --foreground-muted:#858585;
+      --foreground-faint:#404040;
+      --link:            #4daafc;
+      --accent:          #007acc;
+      --accent-hover:    #1177bb;
+      --btn-primary-bg:     #0e639c;
+      --btn-primary-hover:  #1177bb;
+      --btn-secondary-border: #555555;
+      --head:     #e6931a;
+      --merging:  #4aabf7;
+      --result:   #4ec9b0;
+      --font-ui:   -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      --font-mono: Consolas, 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--editor-bg);
+      color: var(--foreground);
+      font-family: var(--font-ui);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* ── LEFT SIDEBAR: Step List ── */
+    .steps-sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .sidebar-logo-icon {
+      width: 24px; height: 24px;
+      background: var(--btn-primary-bg);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .sidebar-logo-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+    .sidebar-subtitle {
+      font-size: 11px;
+      color: var(--foreground-muted);
+      line-height: 1.4;
+    }
+
+    .step-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+    .step-list::-webkit-scrollbar { width: 6px; }
+    .step-list::-webkit-scrollbar-thumb { background: rgba(121,121,121,0.3); }
+
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background 0.1s;
+      border-left: 2px solid transparent;
+    }
+    .step-item:hover { background: var(--item-hover); }
+    .step-item.active {
+      background: var(--item-selected);
+      border-left-color: var(--item-selected-border);
+    }
+
+    .step-check {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid var(--foreground-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+      font-size: 10px;
+    }
+    .step-item.done .step-check {
+      border-color: var(--result);
+      background: rgba(78, 201, 176, 0.12);
+      color: var(--result);
+    }
+    .step-item.active .step-check {
+      border-color: var(--accent);
+      background: rgba(0, 122, 204, 0.15);
+      color: var(--accent);
+    }
+
+    .step-text { flex: 1; }
+    .step-title {
+      font-size: 12.5px;
+      color: var(--foreground-dim);
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+    .step-item.active .step-title { color: var(--foreground); }
+    .step-desc {
+      font-size: 11px;
+      color: var(--foreground-muted);
+      line-height: 1.4;
+    }
+
+    .sidebar-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--panel-border);
+    }
+    .skip-link {
+      font-size: 11px;
+      color: var(--foreground-muted);
+      cursor: pointer;
+      text-decoration: none;
+      background: none;
+      border: none;
+      font-family: var(--font-ui);
+    }
+    .skip-link:hover { color: var(--link); text-decoration: underline; }
+
+    /* ── MAIN CONTENT AREA ── */
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px 48px;
+      min-width: 0;
+    }
+    .content-area::-webkit-scrollbar { width: 10px; }
+    .content-area::-webkit-scrollbar-thumb { background: rgba(121,121,121,0.4); }
+
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+
+    /* ── STEP CONTENT ── */
+    .content-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--foreground-muted);
+      margin-bottom: 8px;
+    }
+    .content-title {
+      font-size: 24px;
+      font-weight: 400;
+      color: var(--foreground);
+      margin-bottom: 10px;
+      line-height: 1.25;
+    }
+    .content-desc {
+      font-size: 13px;
+      color: var(--foreground-muted);
+      line-height: 1.6;
+      margin-bottom: 28px;
+      max-width: 560px;
+    }
+
+    /* ── 3-COLUMN DIAGRAM ── */
+    .diagram-3col {
+      display: grid;
+      grid-template-columns: 1fr 1px 1fr 1px 1fr;
+      background: var(--sidebar-bg);
+      border: 1px solid var(--border-light);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      max-width: 560px;
+    }
+    .diagram-col { display: flex; flex-direction: column; }
+    .diagram-divider { background: var(--border); }
+    .diagram-col-hdr {
+      padding: 8px 12px 6px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .diagram-col-hdr .bar {
+      width: 2px; height: 12px; border-radius: 1px; flex-shrink: 0;
+    }
+    .diagram-col.h .diagram-col-hdr { color: var(--head); }
+    .diagram-col.r .diagram-col-hdr { color: var(--result); }
+    .diagram-col.m .diagram-col-hdr { color: var(--merging); }
+    .diagram-col.h .bar { background: var(--head); }
+    .diagram-col.r .bar { background: var(--result); }
+    .diagram-col.m .bar { background: var(--merging); }
+
+    .diagram-col-body {
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--foreground-muted);
+      line-height: 1.8;
+    }
+    .diagram-col-body .code-ln { color: rgba(200,210,230,0.5); }
+    .diagram-col-body .conflict-ln {
+      padding: 0 4px;
+      margin: 2px 0;
+      border-radius: 2px;
+      border-left: 2px solid;
+    }
+    .diagram-col.h .conflict-ln {
+      background: rgba(230, 147, 26, 0.1);
+      color: rgba(230, 147, 26, 0.9);
+      border-color: rgba(230, 147, 26, 0.4);
+    }
+    .diagram-col.r .conflict-ln {
+      background: rgba(78, 201, 176, 0.1);
+      color: rgba(78, 201, 176, 0.9);
+      border-color: rgba(78, 201, 176, 0.4);
+    }
+    .diagram-col.m .conflict-ln {
+      background: rgba(74, 171, 247, 0.1);
+      color: rgba(74, 171, 247, 0.9);
+      border-color: rgba(74, 171, 247, 0.4);
+    }
+    .diagram-tag {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 1px 5px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border-light);
+      border-radius: 2px;
+      font-size: 9px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--foreground-muted);
+    }
+
+    .diagram-legend {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--foreground-muted);
+    }
+    .legend-badge {
+      padding: 2px 8px;
+      border-radius: 2px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid;
+    }
+    .legend-badge.head {
+      background: rgba(230, 147, 26, 0.08);
+      color: var(--head);
+      border-color: rgba(230, 147, 26, 0.3);
+    }
+    .legend-badge.merging {
+      background: rgba(74, 171, 247, 0.08);
+      color: var(--merging);
+      border-color: rgba(74, 171, 247, 0.3);
+    }
+
+    /* ── CONFIG OPTIONS ── */
+    .config-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 28px;
+      max-width: 520px;
+    }
+    .config-opt {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--sidebar-bg);
+      border: 1px solid var(--border-light);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .config-opt.selected {
+      background: var(--item-selected);
+      border-color: var(--item-selected-border);
+    }
+    .config-opt:not(.selected):hover {
+      background: var(--item-hover);
+      border-color: var(--border-light);
+    }
+    .config-radio {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 1.5px solid var(--foreground-muted);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .config-opt.selected .config-radio {
+      border-color: var(--accent);
+    }
+    .config-radio-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: none;
+    }
+    .config-opt.selected .config-radio-dot { display: block; }
+    .config-opt-content { flex: 1; }
+    .config-opt-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--foreground);
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .config-badge {
+      padding: 1px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      background: rgba(0, 122, 204, 0.15);
+      color: var(--link);
+      border: 1px solid rgba(0, 122, 204, 0.3);
+      border-radius: 2px;
+    }
+    .config-opt-desc {
+      font-size: 12px;
+      color: var(--foreground-muted);
+      line-height: 1.5;
+    }
+    .config-opt-desc code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--foreground-dim);
+      background: rgba(255,255,255,0.07);
+      padding: 0 4px;
+      border-radius: 2px;
+    }
+
+    /* ── SHORTCUTS TABLE ── */
+    .shortcuts-table {
+      width: 100%;
+      max-width: 560px;
+      border-collapse: collapse;
+      margin-bottom: 28px;
+      font-size: 12.5px;
+    }
+    .shortcuts-table th {
+      text-align: left;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--foreground-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .shortcuts-table td {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--foreground-faint);
+      color: var(--foreground-dim);
+      vertical-align: middle;
+    }
+    .shortcuts-table tr:hover td { background: var(--item-hover); }
+    .shortcut-keys {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+    }
+    .kbd {
+      padding: 2px 6px;
+      background: var(--section-bg);
+      border: 1px solid var(--border-light);
+      border-bottom-width: 2px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--foreground-dim);
+    }
+    .kbd.head-kbd  { color: var(--head); border-color: rgba(230, 147, 26, 0.4); background: rgba(230, 147, 26, 0.06); }
+    .kbd.merge-kbd { color: var(--merging); border-color: rgba(74, 171, 247, 0.4); background: rgba(74, 171, 247, 0.06); }
+    .kbd.result-kbd { color: var(--result); border-color: rgba(78, 201, 176, 0.4); background: rgba(78, 201, 176, 0.06); }
+    .shortcut-label { font-weight: 600; color: var(--foreground); margin-bottom: 2px; }
+    .shortcut-sublabel { font-size: 11px; color: var(--foreground-muted); }
+
+    /* ── NAVIGATION FOOTER ── */
+    .content-footer {
+      display: flex;
+      align-items: center;
+      padding-top: 24px;
+      margin-top: 4px;
+      border-top: 1px solid var(--panel-border);
+      gap: 8px;
+      max-width: 560px;
+    }
+    .vsc-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      font-family: var(--font-ui);
+      font-size: 12.5px;
+      border-radius: 2px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.1s;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .vsc-btn-primary {
+      background: var(--btn-primary-bg);
+      color: #ffffff;
+    }
+    .vsc-btn-primary:hover { background: var(--btn-primary-hover); }
+    .vsc-btn-secondary {
+      background: transparent;
+      color: var(--foreground-dim);
+      border-color: var(--btn-secondary-border);
+    }
+    .vsc-btn-secondary:hover { background: rgba(255,255,255,0.06); }
+    .nav-spacer { flex: 1; }
+    .nav-step-count {
+      font-size: 11px;
+      color: var(--foreground-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="layout">
+
+    <!-- LEFT SIDEBAR -->
+    <div class="steps-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <div class="sidebar-logo-icon">&#9889;</div>
+          <span class="sidebar-logo-name">Git Enhanced</span>
+        </div>
+        <div class="sidebar-subtitle">Advanced 3-column merge editor for VS Code</div>
+      </div>
+
+      <div class="step-list">
+        <div class="step-item active" data-step="1" onclick="showStep(1)">
+          <div class="step-check">1</div>
+          <div class="step-text">
+            <div class="step-title">How it works</div>
+            <div class="step-desc">The 3-column merge workflow</div>
+          </div>
+        </div>
+
+        <div class="step-item" data-step="2" onclick="showStep(2)">
+          <div class="step-check">2</div>
+          <div class="step-text">
+            <div class="step-title">Configure activation</div>
+            <div class="step-desc">When should Git Enhanced open?</div>
+          </div>
+        </div>
+
+        <div class="step-item" data-step="3" onclick="showStep(3)">
+          <div class="step-check">3</div>
+          <div class="step-text">
+            <div class="step-title">Keyboard shortcuts</div>
+            <div class="step-desc">Resolve conflicts at speed</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="skip-link" onclick="skipWizard()">Skip setup &mdash; I'll explore on my own</button>
+      </div>
+    </div>
+
+    <!-- CONTENT AREA -->
+    <div class="content-area">
+
+      <!-- STEP 1 -->
+      <div class="step-panel active" id="step1">
+        <div class="content-eyebrow">Step 1 of 3</div>
+        <div class="content-title">The 3-column merge editor</div>
+        <p class="content-desc">
+          Git Enhanced replaces VS Code's default merge view with a professional 3-column layout &mdash;
+          the same workflow used in IntelliJ, now right inside your editor.
+          Each conflict is shown in context, with one-click resolution.
+        </p>
+
+        <div class="diagram-3col">
+          <div class="diagram-col h">
+            <div class="diagram-col-hdr"><div class="bar"></div>HEAD (Current)</div>
+            <div class="diagram-col-body">
+              <div class="code-ln">const x = 1;</div>
+              <div class="conflict-ln">return x * 2;</div>
+              <div class="code-ln">// end</div>
+              <div class="diagram-tag">read-only</div>
+            </div>
+          </div>
+          <div class="diagram-divider"></div>
+          <div class="diagram-col r">
+            <div class="diagram-col-hdr"><div class="bar"></div>Result</div>
+            <div class="diagram-col-body">
+              <div class="code-ln">const x = 1;</div>
+              <div class="conflict-ln">&#10003; resolved</div>
+              <div class="code-ln">// end</div>
+              <div class="diagram-tag">editable</div>
+            </div>
+          </div>
+          <div class="diagram-divider"></div>
+          <div class="diagram-col m">
+            <div class="diagram-col-hdr"><div class="bar"></div>MERGING (Incoming)</div>
+            <div class="diagram-col-body">
+              <div class="code-ln">const x = 1;</div>
+              <div class="conflict-ln">return x * 3;</div>
+              <div class="code-ln">// end</div>
+              <div class="diagram-tag">read-only</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="diagram-legend">
+          <div class="legend-item">
+            <span class="legend-badge head">&gt;&gt;</span>
+            Accept current change
+          </div>
+          <div class="legend-item">
+            <span class="legend-badge merging">&lt;&lt;</span>
+            Accept incoming change
+          </div>
+        </div>
+
+        <div class="content-footer">
+          <span class="nav-step-count">1 / 3</span>
+          <div class="nav-spacer"></div>
+          <button class="vsc-btn vsc-btn-primary" onclick="showStep(2)">
+            Next: Configure &rarr;
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="step-panel" id="step2">
+        <div class="content-eyebrow">Step 2 of 3</div>
+        <div class="content-title">Configure activation</div>
+        <p class="content-desc">
+          Choose when Git Enhanced opens. You can change this anytime via
+          VS Code Settings (<code>gitEnhanced.activationMode</code>) or by
+          reopening this page from the Command Palette.
+        </p>
+
+        <div class="config-options">
+          <div class="config-opt selected" data-modalita="auto" onclick="selectOption(this)">
+            <div class="config-radio">
+              <div class="config-radio-dot"></div>
+            </div>
+            <div class="config-opt-content">
+              <div class="config-opt-title">
+                Automatic
+                <span class="config-badge">RECOMMENDED</span>
+              </div>
+              <div class="config-opt-desc">
+                Opens instantly whenever VS Code detects a merge conflict.
+                No extra steps &mdash; just the right tool at the right moment.
+              </div>
+            </div>
+          </div>
+
+          <div class="config-opt" data-modalita="manual" onclick="selectOption(this)">
+            <div class="config-radio">
+              <div class="config-radio-dot"></div>
+            </div>
+            <div class="config-opt-content">
+              <div class="config-opt-title">Manual only</div>
+              <div class="config-opt-desc">
+                VS Code's native editor stays as default. Open Git Enhanced on demand
+                via Command Palette: <code>Git Enhanced: Open Merge Editor</code>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="content-footer">
+          <button class="vsc-btn vsc-btn-secondary" onclick="showStep(1)">&larr; Back</button>
+          <span class="nav-step-count" style="margin-left: 8px;">2 / 3</span>
+          <div class="nav-spacer"></div>
+          <button class="vsc-btn vsc-btn-primary" onclick="showStep(3)">
+            Next: Shortcuts &rarr;
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="step-panel" id="step3">
+        <div class="content-eyebrow">Step 3 of 3</div>
+        <div class="content-title">Keyboard shortcuts</div>
+        <p class="content-desc">
+          Everything you need to resolve conflicts at full speed.
+          These shortcuts are also shown inline as buttons in the merge editor.
+        </p>
+
+        <table class="shortcuts-table">
+          <thead>
+            <tr>
+              <th style="width:160px;">Shortcut</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="shortcut-keys"><span class="kbd head-kbd">&gt;&gt;</span></div></td>
+              <td>
+                <div class="shortcut-label">Accept current (HEAD) chunk</div>
+                <div class="shortcut-sublabel">Sends the left column's conflict chunk to Result</div>
+              </td>
+            </tr>
+            <tr>
+              <td><div class="shortcut-keys"><span class="kbd merge-kbd">&lt;&lt;</span></div></td>
+              <td>
+                <div class="shortcut-label">Accept incoming (MERGING) chunk</div>
+                <div class="shortcut-sublabel">Sends the right column's conflict chunk to Result</div>
+              </td>
+            </tr>
+            <tr>
+              <td><div class="shortcut-keys"><span class="kbd">&#10005;</span></div></td>
+              <td>
+                <div class="shortcut-label">Discard chunk</div>
+                <div class="shortcut-sublabel">Remove a conflict chunk from the Result</div>
+              </td>
+            </tr>
+            <tr>
+              <td><div class="shortcut-keys"><span class="kbd">F7</span></div></td>
+              <td>
+                <div class="shortcut-label">Next conflict</div>
+                <div class="shortcut-sublabel">Jump to the next unresolved conflict</div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="shortcut-keys">
+                  <span class="kbd">&#8679;</span>
+                  <span style="font-size:11px; color: var(--foreground-muted);">+</span>
+                  <span class="kbd">F7</span>
+                </div>
+              </td>
+              <td>
+                <div class="shortcut-label">Previous conflict</div>
+                <div class="shortcut-sublabel">Jump to the previous unresolved conflict</div>
+              </td>
+            </tr>
+            <tr>
+              <td><div class="shortcut-keys"><span class="kbd result-kbd">&#10022; Auto</span></div></td>
+              <td>
+                <div class="shortcut-label">Auto-resolve all</div>
+                <div class="shortcut-sublabel">Apply all diff3 + AST suggestions at once</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="content-footer">
+          <button class="vsc-btn vsc-btn-secondary" onclick="showStep(2)">&larr; Back</button>
+          <span class="nav-step-count" style="margin-left: 8px;">3 / 3</span>
+          <div class="nav-spacer"></div>
+          <button class="vsc-btn vsc-btn-primary" onclick="completaWizard()">&#10003; Start merging</button>
+        </div>
+      </div>
+
+    </div><!-- /content-area -->
+  </div><!-- /layout -->
+
+  <script nonce="${nonce}">
+    const vscode = acquireVsCodeApi();
+    let modalitaSelezionata = 'auto';
+
+    function showStep(n) {
+      // Update sidebar items
+      document.querySelectorAll('.step-item').forEach(function(el, i) {
+        el.classList.remove('active', 'done');
+        const check = el.querySelector('.step-check');
+        if (i < n - 1) {
+          el.classList.add('done');
+          check.textContent = '\\u2713';
+        } else if (i === n - 1) {
+          el.classList.add('active');
+          check.textContent = String(n);
+        } else {
+          check.textContent = String(i + 1);
+        }
+      });
+
+      // Update panels
+      document.querySelectorAll('.step-panel').forEach(function(p) { p.classList.remove('active'); });
+      document.getElementById('step' + n).classList.add('active');
+    }
+
+    function selectOption(el) {
+      document.querySelectorAll('.config-opt').forEach(function(o) { o.classList.remove('selected'); });
+      el.classList.add('selected');
+      modalitaSelezionata = el.getAttribute('data-modalita') || 'auto';
+    }
+
+    function completaWizard() {
+      vscode.postMessage({ type: 'salvaModalitaAttivazione', modalita: modalitaSelezionata });
+      vscode.postMessage({ type: 'wizardCompletato' });
+    }
+
+    function skipWizard() {
+      vscode.postMessage({ type: 'wizardSkippato' });
+    }
+  </script>
+
+</body>
+</html>`;
+    }
+}
+
+function generaNonce(): string {
+    let risultato = '';
+    const caratteri = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < 32; i++) {
+        risultato += caratteri.charAt(Math.floor(Math.random() * caratteri.length));
+    }
+    return risultato;
+}

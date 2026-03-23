@@ -4,6 +4,7 @@ import { ConfigManager } from './config/ConfigManager';
 import { MergeEditorProvider } from './ui/MergeEditorProvider';
 import { MergeCompletionService } from './core/git/MergeCompletionService';
 import { FallbackService } from './core/git/FallbackService';
+import { OnboardingWizardProvider } from './ui/OnboardingWizardProvider';
 
 const configManager = new ConfigManager();
 const mergeCompletionService = new MergeCompletionService();
@@ -13,6 +14,22 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register the custom editor provider
     const editorProviderDisposable = MergeEditorProvider.register(context);
     context.subscriptions.push(editorProviderDisposable);
+
+    // US-022 — Onboarding wizard
+    const onboardingProvider = new OnboardingWizardProvider(context);
+
+    const openOnboardingCommand = vscode.commands.registerCommand(
+        'git-enhanced.openOnboarding',
+        () => {
+            onboardingProvider.apriWizard();
+        }
+    );
+    context.subscriptions.push(openOnboardingCommand);
+
+    // Apri il wizard automaticamente al primo avvio
+    if (onboardingProvider.deveAprireWizardAlPrimoAvvio()) {
+        onboardingProvider.apriWizard();
+    }
 
     // TASK-001.6 — Command: open merge editor manually from Command Palette
     const openMergeEditorCommand = vscode.commands.registerCommand(

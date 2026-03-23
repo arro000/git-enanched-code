@@ -268,7 +268,7 @@ in modo da avere un'esperienza utente coerente e professionale con il design sys
 #### US-011: Popup di conferma Complete Merge con conflitti ancora aperti
 
 **Epic:** EP-002 | **Priority:** HIGH | **Story Points:** 1
-**Status:** REVIEW
+**Status:** DONE
 
 **Story**
 Come developer,
@@ -292,7 +292,7 @@ in modo da evitare di completare accidentalmente un merge lasciando conflitti ir
 #### US-012: Auto-resolve con diff3 (Layer 1)
 
 **Epic:** EP-003 | **Priority:** HIGH | **Story Points:** 3
-**Status:** REVIEW
+**Status:** DONE
 
 **Story**
 Come Marco (Senior Developer),
@@ -309,7 +309,7 @@ in modo da trovare la colonna centrale già parzialmente popolata con le risoluz
 #### US-013: Analisi AST con Tree-sitter per conflitti residui (Layer 2)
 
 **Epic:** EP-003 | **Priority:** HIGH | **Story Points:** 5
-**Status:** REVIEW
+**Status:** DONE
 
 **Story**
 Come Marco (Senior Developer),
@@ -326,7 +326,7 @@ in modo da risolvere automaticamente anche i conflitti che diff3 non riesce a ge
 #### US-014: Bacchetta magica — applicazione di tutte le risoluzioni automatiche
 
 **Epic:** EP-003 | **Priority:** HIGH | **Story Points:** 2
-**Status:** REVIEW
+**Status:** DONE
 
 **Story**
 Come Sara (Full Stack Developer),
@@ -343,7 +343,7 @@ in modo da risolvere rapidamente la maggioranza dei conflitti senza doverli gest
 #### US-015: Tooltip bacchetta magica con conteggio e indicatore di confidenza
 
 **Epic:** EP-003 | **Priority:** MEDIUM | **Story Points:** 1
-**Status:** REVIEW
+**Status:** DONE
 
 **Story**
 Come developer,
@@ -360,7 +360,7 @@ in modo da sapere quanti conflitti verranno risolti automaticamente e con quale 
 #### US-016: Supporto grammar Tree-sitter per tutti i linguaggi target
 
 **Epic:** EP-003 | **Priority:** HIGH | **Story Points:** 3
-**Status:** REVIEW
+**Status:** DONE
 
 **Story**
 Come developer,
@@ -384,7 +384,7 @@ in modo da beneficiare dello smart merge nei linguaggi che uso quotidianamente s
 #### US-017: Minimap laterale con highlight stato conflitti
 
 **Epic:** EP-004 | **Priority:** HIGH | **Story Points:** 3
-**Status:** REVIEW
+**Status:** DONE
 
 **Story**
 Come developer,
@@ -401,7 +401,7 @@ in modo da avere sempre una visione d'insieme e capire immediatamente quanti con
 #### US-018: Contatore numerico conflitti aperti persistente
 
 **Epic:** EP-004 | **Priority:** HIGH | **Story Points:** 1
-**Status:** REVIEW
+**Status:** DONE
 
 **Story**
 Come developer,
@@ -418,7 +418,7 @@ in modo da monitorare il progresso della risoluzione senza dover scorrere il doc
 #### US-019: Navigazione al conflitto successivo/precedente con F7/Shift+F7
 
 **Epic:** EP-004 | **Priority:** HIGH | **Story Points:** 2
-**Status:** REVIEW
+**Status:** DONE
 
 **Story**
 Come Marco (Senior Developer),
@@ -435,7 +435,7 @@ in modo da navigare rapidamente tra i conflitti senza usare il mouse e mantenere
 #### US-020: Click su minimap per navigazione diretta nel documento
 
 **Epic:** EP-004 | **Priority:** MEDIUM | **Story Points:** 2
-**Status:** REVIEW
+**Status:** DONE
 
 **Story**
 Come developer,
@@ -452,7 +452,7 @@ in modo da raggiungere rapidamente qualsiasi conflitto senza dover scorrere manu
 #### US-021: Navigazione scroll/trackpad naturale e sincronizzata
 
 **Epic:** EP-004 | **Priority:** MEDIUM | **Story Points:** 1
-**Status:** REVIEW
+**Status:** DONE
 
 **Story**
 Come developer,
@@ -476,6 +476,7 @@ in modo da non dover gestire tre scroll separati e mantenere l'allineamento visi
 #### US-022: Wizard onboarding a 3 schermate al primo avvio
 
 **Epic:** EP-005 | **Priority:** HIGH | **Story Points:** 3
+**Status:** REVIEW
 
 **Story**
 Come Sara (Full Stack Developer),
