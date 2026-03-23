@@ -2,7 +2,8 @@
   "name": "git-enhanced",
   "displayName": "Git Enhanced",
   "description": "Advanced 3-column merge editor for VS Code with smart conflict resolution",
-  "version": "0.2.0",
+  "version": "0.3.0",
+  "icon": "git-enhanced-logo.png",
   "publisher": "Zibro",
   "license": "MIT",
   "repository": {
