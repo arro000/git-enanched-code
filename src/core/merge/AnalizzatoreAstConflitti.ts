@@ -1,5 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const Parser = require('web-tree-sitter');
+const TreeSitterModule = require('web-tree-sitter');
 import { ConflictBlock } from '../git/ConflictParser';
 import { RilevatorePatternSemantico } from './RilevatorePatternSemantico';
 
@@ -156,21 +156,46 @@ export class AnalizzatoreAstConflitti {
 
         try {
             if (!this.inizializzato) {
-                await Parser.init();
-                this.parser = new Parser();
+                const path = require('path');
+                const fs = require('fs');
+                // Cerca web-tree-sitter.wasm: prima in __dirname (bundle out/),
+                // poi in node_modules (per esecuzione diretta nei test)
+                const percorsoInBundle = path.join(__dirname, 'web-tree-sitter.wasm');
+                const percorsoInNodeModules = path.join(
+                    path.dirname(require.resolve('web-tree-sitter')),
+                    'web-tree-sitter.wasm'
+                );
+                const cartellaWasm = fs.existsSync(percorsoInBundle)
+                    ? __dirname
+                    : path.dirname(percorsoInNodeModules);
+                await TreeSitterModule.Parser.init({
+                    locateFile: (nomeFile: string) => path.join(cartellaWasm, nomeFile),
+                });
+                this.parser = new TreeSitterModule.Parser();
                 this.inizializzato = true;
             }
 
             const configLinguaggio = LINGUAGGI_SUPPORTATI[linguaggioId];
             if (!configLinguaggio || !this.parser) return;
 
-            // Carica la grammar WASM dal pacchetto npm del linguaggio
+            // Carica la grammar WASM: prima da __dirname (bundle out/),
+            // poi dal pacchetto npm del linguaggio
             const path = require('path');
-            const percorsoWasm = path.join(
-                path.dirname(require.resolve(`${configLinguaggio.pacchetto}/package.json`)),
-                configLinguaggio.nomeFile
-            );
-            const linguaggio = await Parser.Language.load(percorsoWasm);
+            const fs = require('fs');
+            const percorsoInBundle = path.join(__dirname, configLinguaggio.nomeFile);
+            let percorsoWasm: string;
+            if (fs.existsSync(percorsoInBundle)) {
+                percorsoWasm = percorsoInBundle;
+            } else {
+                // Fallback: cerca nella root del pacchetto npm risalendo da require.resolve
+                let cartella = path.dirname(require.resolve(configLinguaggio.pacchetto));
+                while (cartella !== path.dirname(cartella)) {
+                    if (fs.existsSync(path.join(cartella, configLinguaggio.nomeFile))) break;
+                    cartella = path.dirname(cartella);
+                }
+                percorsoWasm = path.join(cartella, configLinguaggio.nomeFile);
+            }
+            const linguaggio = await TreeSitterModule.Language.load(percorsoWasm);
             this.parser.setLanguage(linguaggio);
             this.linguaggioCaricato = linguaggioId;
         } catch {

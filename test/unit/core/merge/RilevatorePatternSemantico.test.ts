@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-// web-tree-sitter v0.24.x exports a default function (Parser constructor)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const TreeSitter = require('web-tree-sitter');
 import * as path from 'path';
@@ -10,8 +9,8 @@ describe('RilevatorePatternSemantico', () => {
     const rilevatore = new RilevatorePatternSemantico();
 
     beforeAll(async () => {
-        await TreeSitter.init();
-        parser = new TreeSitter();
+        await TreeSitter.Parser.init();
+        parser = new TreeSitter.Parser();
         const percorsoWasm = path.join(
             path.dirname(require.resolve('tree-sitter-typescript/package.json')),
             'tree-sitter-typescript.wasm'
