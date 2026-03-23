@@ -493,6 +493,7 @@ in modo da capire rapidamente come usare Git Enhanced e configurarlo secondo le 
 #### US-023: Skip wizard e riapertura da Command Palette
 
 **Epic:** EP-005 | **Priority:** HIGH | **Story Points:** 1
+**Status:** REVIEW
 
 **Story**
 Come developer,

@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const globalStateStore: Record<string, unknown> = {};
 
 const mockWebviewOnDidReceiveMessage = vi.fn();
+const mockWebviewPostMessage = vi.fn().mockResolvedValue(true);
 const mockPanelOnDidDispose = vi.fn();
 const mockPanelReveal = vi.fn();
 const mockPanelDispose = vi.fn();
@@ -14,6 +15,7 @@ function creaPannelloMock() {
         webview: {
             html: '',
             onDidReceiveMessage: mockWebviewOnDidReceiveMessage,
+            postMessage: mockWebviewPostMessage,
             cspSource: 'https://mock.csp.source',
         },
         onDidDispose: mockPanelOnDidDispose,
@@ -262,6 +264,69 @@ describe('OnboardingWizardProvider', () => {
             provider.apriWizard();
             expect(mockCreateWebviewPanel).toHaveBeenCalledOnce();
             expect(pannelloCorrenteMock!.webview.html).toContain('Step 1 of 3');
+        });
+    });
+
+    // ── US-023: Skip wizard e riapertura da Command Palette ──
+
+    describe('US-023: Skip wizard e riapertura da Command Palette', () => {
+        it('il pulsante Skip e\' presente nell\'HTML generato del wizard', () => {
+            provider.apriWizard();
+
+            const html = pannelloCorrenteMock!.webview.html;
+            expect(html).toContain('skipWizard()');
+            expect(html).toContain('Skip setup');
+        });
+
+        it('apriWizard invia il messaggio resetAllaSchermataIniziale quando il pannello e\' gia\' aperto', () => {
+            // Prima apertura: crea il pannello
+            provider.apriWizard();
+            expect(mockCreateWebviewPanel).toHaveBeenCalledTimes(1);
+            expect(mockWebviewPostMessage).not.toHaveBeenCalled();
+
+            // Seconda apertura: reveal + reset
+            provider.apriWizard();
+            expect(mockCreateWebviewPanel).toHaveBeenCalledTimes(1); // non crea un nuovo pannello
+            expect(mockPanelReveal).toHaveBeenCalledOnce();
+            expect(mockWebviewPostMessage).toHaveBeenCalledWith({
+                type: 'resetAllaSchermataIniziale',
+            });
+        });
+
+        it('il comando riapre il wizard dalla schermata 1 anche dopo il completamento', async () => {
+            // Completa il wizard
+            await provider.segnaWizardCompletato();
+            expect(provider.deveAprireWizardAlPrimoAvvio()).toBe(false);
+
+            // Riapertura: apriWizard non controlla il flag di completamento
+            provider.apriWizard();
+            expect(mockCreateWebviewPanel).toHaveBeenCalledOnce();
+
+            // L'HTML contiene la schermata 1 attiva di default
+            const html = pannelloCorrenteMock!.webview.html;
+            expect(html).toContain('id="step1"');
+            expect(html).toContain('step-panel active');
+        });
+
+        it('il messaggio wizardSkippato segna il wizard come completato e chiude il pannello', async () => {
+            provider.apriWizard();
+            simulaMessaggioDalWebview({ type: 'wizardSkippato' });
+
+            await vi.waitFor(() => {
+                expect(contesto.globalState.update).toHaveBeenCalledWith(
+                    'git-enhanced.onboardingCompletato',
+                    true
+                );
+                expect(mockPanelDispose).toHaveBeenCalled();
+            });
+        });
+
+        it('l\'HTML del webview contiene il listener per il messaggio resetAllaSchermataIniziale', () => {
+            provider.apriWizard();
+
+            const html = pannelloCorrenteMock!.webview.html;
+            expect(html).toContain('resetAllaSchermataIniziale');
+            expect(html).toContain('window.addEventListener');
         });
     });
 });

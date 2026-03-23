@@ -22,6 +22,7 @@ export class OnboardingWizardProvider {
     apriWizard(): void {
         if (this.pannello) {
             this.pannello.reveal(vscode.ViewColumn.One);
+            this.pannello.webview.postMessage({ type: 'resetAllaSchermataIniziale' });
             return;
         }
 
@@ -838,6 +839,14 @@ export class OnboardingWizardProvider {
     function skipWizard() {
       vscode.postMessage({ type: 'wizardSkippato' });
     }
+
+    // Listener per messaggi dall'extension host (es. reset alla schermata iniziale)
+    window.addEventListener('message', function(event) {
+      var messaggio = event.data;
+      if (messaggio && messaggio.type === 'resetAllaSchermataIniziale') {
+        showStep(1);
+      }
+    });
   </script>
 
 </body>
