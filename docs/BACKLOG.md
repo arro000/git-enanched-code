@@ -343,6 +343,7 @@ in modo da risolvere rapidamente la maggioranza dei conflitti senza doverli gest
 #### US-015: Tooltip bacchetta magica con conteggio e indicatore di confidenza
 
 **Epic:** EP-003 | **Priority:** MEDIUM | **Story Points:** 1
+**Status:** REVIEW
 
 **Story**
 Come developer,

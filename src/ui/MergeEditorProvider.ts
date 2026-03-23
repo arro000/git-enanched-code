@@ -76,7 +76,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
 
             // US-012/US-014: Auto-resolve con diff3 e AST
             let risultatoDiff3: RisultatoAnalisiDiff3 | null = null;
-            let risoluzionePending: Array<{ indiceConflitto: number; contenutoRisolto: string; sorgente: string }> = [];
+            let risoluzionePending: Array<{ indiceConflitto: number; contenutoRisolto: string; sorgente: string; scoreConfidenza: number }> = [];
 
             if (!statoEsistente) {
                 // Create initial state for a new merge session
@@ -117,6 +117,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                             indiceConflitto: ris.indiceConflitto,
                             contenutoRisolto: ris.contenutoRisolto,
                             sorgente: 'diff3-auto',
+                            scoreConfidenza: 1.0, // diff3 has maximum confidence
                         });
                     }
                 }
@@ -128,6 +129,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                                 indiceConflitto: ris.indiceConflitto,
                                 contenutoRisolto: ris.contenutoRisolto,
                                 sorgente: 'ast-auto',
+                                scoreConfidenza: ris.scoreConfidenza,
                             });
                         }
                     }
@@ -148,12 +150,14 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                             righe: righeDocumento,
                             conflitti: conflittiParsati,
                         });
-                        // US-014: Send pending resolutions to webview (not applied yet)
+                        // US-014/US-015: Send pending resolutions with confidence info
                         if (risoluzionePending.length > 0) {
+                            const totaleConflitti = conflittiParsati.length;
                             webviewPanel.webview.postMessage({
                                 command: 'risoluzioniPending',
                                 risoluzioni: risoluzionePending,
                                 conteggio: risoluzionePending.length,
+                                totaleConflitti,
                             });
                         }
                         // US-005: Send restored state if available
@@ -541,7 +545,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             <span>conflicts remaining</span>
         </div>
         <div class="spacer"></div>
-        <button class="vsc-btn vsc-btn-secondary" id="btnBacchettaMagica" disabled>&#10022; Auto-resolve</button>
+        <button class="vsc-btn vsc-btn-secondary" id="btnBacchettaMagica" disabled title="">&#10022; Auto-resolve</button>
         <button class="vsc-btn vsc-btn-primary" id="completeMergeButton">&#10003; Complete Merge</button>
     </div>
     <div class="col-headers">
@@ -994,6 +998,17 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                     if (btnBacchetta && window._risoluzioniPending.length > 0) {
                         btnBacchetta.disabled = false;
                         btnBacchetta.textContent = '\\u2726 Auto-resolve (' + window._risoluzioniPending.length + ')';
+
+                        // US-015: Tooltip con conteggio e indicatore di confidenza
+                        var risolvibili = window._risoluzioniPending.length;
+                        var totale = message.totaleConflitti || risolvibili;
+                        var sommaConfidenza = 0;
+                        window._risoluzioniPending.forEach(function(r) {
+                            sommaConfidenza += (r.scoreConfidenza || 0);
+                        });
+                        var confidenzaMedia = risolvibili > 0 ? sommaConfidenza / risolvibili : 0;
+                        var livelloConfidenza = confidenzaMedia >= 0.8 ? 'alta' : confidenzaMedia >= 0.5 ? 'media' : 'bassa';
+                        btnBacchetta.title = risolvibili + ' risolvibili su ' + totale + ' totali — confidenza: ' + livelloConfidenza + ' (' + Math.round(confidenzaMedia * 100) + '%)';
                     }
                 }
             });
