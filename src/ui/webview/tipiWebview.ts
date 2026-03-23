@@ -45,6 +45,7 @@ declare global {
         __LINGUAGGIO_ID__: string;
         _risoluzioniPending: RisoluzionePending[];
         _risoluzioniDisponibili: Record<number, RisoluzionePending>;
+        _mergeCompletato: boolean;
     }
     function acquireVsCodeApi(): VsCodeApi;
     const monaco: any;

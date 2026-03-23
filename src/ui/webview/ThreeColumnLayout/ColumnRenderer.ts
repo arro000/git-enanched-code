@@ -44,6 +44,10 @@ function placeholderConflitto(indiceConflitto: number): string {
     return '// [Conflitto #' + (indiceConflitto + 1) + ' -- irrisolto]';
 }
 
+function mergeCompletato(): boolean {
+    return window._mergeCompletato === true;
+}
+
 function ricostruisciContenutoResult(): string {
     if (!segmentiGlobali) {
         return '';
@@ -69,6 +73,7 @@ function ricostruisciContenutoResult(): string {
 
 /** Applica il chunk HEAD nella colonna Result (con supporto accodamento). */
 export function applicaChunkHead(indiceConflitto: number, contenutoHead: string): void {
+    if (mergeCompletato()) return;
     const editor = getMonacoInstance();
     if (!editor) return;
     const model = editor.getModel();
@@ -96,6 +101,7 @@ export function applicaChunkHead(indiceConflitto: number, contenutoHead: string)
 
 /** Scarta il chunk HEAD senza modificare il Monaco editor. */
 export function scartaChunkHead(indiceConflitto: number): void {
+    if (mergeCompletato()) return;
     statiConflitti[indiceConflitto].headGestito = true;
     marcaConflittoComeGestito('head', indiceConflitto);
     inviaAggiornamentoStatoCorrente();
@@ -103,6 +109,7 @@ export function scartaChunkHead(indiceConflitto: number): void {
 
 /** Applica il chunk MERGING nella colonna Result (con supporto accodamento). */
 export function applicaChunkMerging(indiceConflitto: number, contenutoMerging: string): void {
+    if (mergeCompletato()) return;
     const editor = getMonacoInstance();
     if (!editor) return;
     const model = editor.getModel();
@@ -130,12 +137,14 @@ export function applicaChunkMerging(indiceConflitto: number, contenutoMerging: s
 
 /** Scarta il chunk MERGING senza modificare il Monaco editor. */
 export function scartaChunkMerging(indiceConflitto: number): void {
+    if (mergeCompletato()) return;
     statiConflitti[indiceConflitto].mergingGestito = true;
     marcaConflittoComeGestito('merging', indiceConflitto);
     inviaAggiornamentoStatoCorrente();
 }
 
 export function resettaConflitto(indiceConflitto: number): void {
+    if (mergeCompletato()) return;
     const editor = getMonacoInstance();
     if (!editor) return;
 

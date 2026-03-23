@@ -226,6 +226,7 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
             expect(sorgenteColumnRenderer).toContain("resetButtonMerging.textContent = '\\u21ba Reset'");
             expect(sorgenteColumnRenderer).toContain('function resettaConflitto');
             expect(sorgenteColumnRenderer).toContain('riabilitaAutoResolvePerConflitto');
+            expect(sorgenteColumnRenderer).toContain('if (mergeCompletato()) return;');
         });
     });
 
@@ -345,7 +346,12 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
 
         it('the CSS shows reset button when a conflict has been handled', () => {
             expect(cssEsterno).toContain('.conflict-segment-handled .ab.rs');
-            expect(cssEsterno).toContain('background: #1f7f69');
+            expect(cssEsterno).toContain('background: rgba(78,201,176,0.12)');
+        });
+
+        it('the CSS disables conflict action buttons after merge completion', () => {
+            expect(cssEsterno).toContain('body.merge-completed .ca .ab');
+            expect(cssEsterno).toContain('pointer-events: none');
         });
     });
 
@@ -394,6 +400,12 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
         it('the MessageBridge source restores auto-resolve metadata for persisted auto decisions', () => {
             expect(sorgenteMessageBridge).toContain("conflitto.sorgenteApplicata === 'diff3-auto'");
             expect(sorgenteMessageBridge).toContain('window._risoluzioniDisponibili');
+        });
+
+        it('the MessageBridge source locks the webview after merge completion', () => {
+            expect(sorgenteMessageBridge).toContain('window._mergeCompletato = true');
+            expect(sorgenteMessageBridge).toContain("document.body.classList.add('merge-completed')");
+            expect(sorgenteMessageBridge).toContain('editor.updateOptions({ readOnly: true })');
         });
 
         it('does not send restored state if no previous state exists', async () => {

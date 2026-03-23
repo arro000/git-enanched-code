@@ -3,7 +3,7 @@
  */
 import { VsCodeApi } from './tipiWebview';
 import { impostaSegmentiGlobali, aggiornaContatoreBadge, statiConflitti, marcaConflittoComeGestito } from './ConflictState';
-import { inizializzaMonacoEditor, onMonacoReady } from './MonacoSetup';
+import { getMonacoInstance, inizializzaMonacoEditor, onMonacoReady } from './MonacoSetup';
 import { buildSegmentsFromConflicts, buildInitialResultContent, renderColonneLaterali } from './ThreeColumnLayout/ColumnRenderer';
 import { gestisciRisoluzioniPending } from './SuggestionBadge/AutoResolveHandler';
 
@@ -76,8 +76,19 @@ export function inizializzaMessageListener(vscodeApi: VsCodeApi, linguaggioId: s
         } else if (message.command === 'mergeCompletato') {
             const button = document.getElementById('completeMergeButton') as HTMLButtonElement;
             if (message.successo) {
+                window._mergeCompletato = true;
                 button.textContent = 'Merge Completed';
                 button.disabled = true;
+                const autoResolveButton = document.getElementById('btnBacchettaMagica') as HTMLButtonElement | null;
+                if (autoResolveButton) {
+                    autoResolveButton.disabled = true;
+                }
+                document.body.classList.add('merge-completed');
+                window._risoluzioniPending = [];
+                const editor = getMonacoInstance();
+                if (editor) {
+                    editor.updateOptions({ readOnly: true });
+                }
             }
         } else if (message.command === 'statoRipristinato') {
             ripristinaStatoSessione(message.stato);

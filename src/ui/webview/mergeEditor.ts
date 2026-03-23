@@ -23,6 +23,7 @@ const monacoBaseUri = window.__MONACO_BASE_URI__;
 const linguaggioId = window.__LINGUAGGIO_ID__;
 window._risoluzioniPending = window._risoluzioniPending || [];
 window._risoluzioniDisponibili = window._risoluzioniDisponibili || {};
+window._mergeCompletato = false;
 
 // Configura Monaco AMD loader
 configuraMonacoLoader(monacoBaseUri);

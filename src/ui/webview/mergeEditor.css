@@ -192,6 +192,11 @@ body {
 .conflict-segment-handled .ab:not(.rs) { display: none; }
 .conflict-segment-handled .ab.rs { display: inline-flex; }
 
+body.merge-completed .ca .ab {
+    pointer-events: none;
+    opacity: 0.45;
+}
+
 /* ── Loading ── */
 .loading-indicator {
     display: flex;
