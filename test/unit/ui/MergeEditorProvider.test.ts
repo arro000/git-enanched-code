@@ -909,11 +909,11 @@ describe('MergeEditorProvider — US-010: Accodamento chunk da entrambe le colon
             expect(html).toContain('statiConflitti[indiceConflitto].contenutoApplicato = contenutoMerging');
         });
 
-        it('when placeholder is gone, HEAD apply searches for previously applied content', async () => {
+        it('when placeholder is gone, HEAD apply uses tracked end line to append content', async () => {
             await inizializzaEditor();
             const html = pannelloWebview.webview.html;
-            expect(html).toContain('statiConflitti[indiceConflitto].contenutoApplicato');
-            expect(html).toContain('matchesPrecedenti');
+            expect(html).toContain('statiConflitti[indiceConflitto].rigaFineApplicato');
+            expect(html).toContain('getLineMaxColumn');
             expect(html).toContain('accoda-chunk-head');
         });
 
@@ -949,20 +949,20 @@ describe('MergeEditorProvider — US-010: Accodamento chunk da entrambe le colon
     });
 
     describe('AC3: ordine di accodamento riflette ordine dei click', () => {
-        it('queued content is appended at the end of the previously applied range', async () => {
+        it('queued content is appended at the tracked end line position', async () => {
             await inizializzaEditor();
             const html = pannelloWebview.webview.html;
-            // Insertion happens at the end of the previous content range
-            expect(html).toContain('.endLineNumber');
-            expect(html).toContain('.endColumn');
+            // Insertion happens at the tracked end line using getLineMaxColumn
+            expect(html).toContain('rigaFineApplicato');
+            expect(html).toContain('getLineMaxColumn');
         });
 
         it('contenutoApplicato is updated to include both chunks after queuing', async () => {
             await inizializzaEditor();
             const html = pannelloWebview.webview.html;
             // After queuing, the combined content is stored for potential further queuing
-            expect(html).toContain("contenutoPrecedente + '\\n' + contenutoHead");
-            expect(html).toContain("contenutoPrecedente + '\\n' + contenutoMerging");
+            expect(html).toContain("statiConflitti[indiceConflitto].contenutoApplicato + '\\n' + contenutoHead");
+            expect(html).toContain("statiConflitti[indiceConflitto].contenutoApplicato + '\\n' + contenutoMerging");
         });
 
         it('uses Monaco Range for precise insertion positioning', async () => {

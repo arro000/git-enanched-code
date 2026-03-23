@@ -55,7 +55,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
 
             // US-006: Parse conflicts and prepare data for 3-column layout
             const conflittiParsati = parseConflicts(document);
-            const righeDocumento = document.getText().split('\n');
+            const righeDocumento = document.getText().replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
 
             // US-007: Prepare Monaco Editor configuration
             const monacoBaseUri = webviewPanel.webview.asWebviewUri(monacoBasePath).toString();
@@ -669,16 +669,18 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 var matches = model.findMatches(placeholder, false, false, true, null, false);
                 if (matches.length > 0) {
                     monacoEditorInstance.executeEdits('applica-chunk-head', [{ range: matches[0].range, text: contenutoHead }]);
+                    var righeInserite = contenutoHead.split('\\n').length;
+                    var rigaInizio = matches[0].range.startLineNumber;
+                    statiConflitti[indiceConflitto].rigaFineApplicato = rigaInizio + righeInserite - 1;
                     statiConflitti[indiceConflitto].contenutoApplicato = contenutoHead;
-                } else if (statiConflitti[indiceConflitto].contenutoApplicato) {
-                    var contenutoPrecedente = statiConflitti[indiceConflitto].contenutoApplicato;
-                    var matchesPrecedenti = model.findMatches(contenutoPrecedente, false, false, true, null, false);
-                    if (matchesPrecedenti.length > 0) {
-                        var rp = matchesPrecedenti[0].range;
-                        var ri = new monaco.Range(rp.endLineNumber, rp.endColumn, rp.endLineNumber, rp.endColumn);
-                        monacoEditorInstance.executeEdits('accoda-chunk-head', [{ range: ri, text: '\\n' + contenutoHead }]);
-                        statiConflitti[indiceConflitto].contenutoApplicato = contenutoPrecedente + '\\n' + contenutoHead;
-                    }
+                } else if (statiConflitti[indiceConflitto].rigaFineApplicato) {
+                    var rigaFine = statiConflitti[indiceConflitto].rigaFineApplicato;
+                    var colonnaFine = model.getLineMaxColumn(rigaFine);
+                    var ri = new monaco.Range(rigaFine, colonnaFine, rigaFine, colonnaFine);
+                    monacoEditorInstance.executeEdits('accoda-chunk-head', [{ range: ri, text: '\\n' + contenutoHead }]);
+                    var righeAccodate = contenutoHead.split('\\n').length;
+                    statiConflitti[indiceConflitto].rigaFineApplicato = rigaFine + righeAccodate;
+                    statiConflitti[indiceConflitto].contenutoApplicato = statiConflitti[indiceConflitto].contenutoApplicato + '\\n' + contenutoHead;
                 }
                 statiConflitti[indiceConflitto].headGestito = true;
                 marcaConflittoComeGestito('head', indiceConflitto);
@@ -698,16 +700,18 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 var matches = model.findMatches(placeholder, false, false, true, null, false);
                 if (matches.length > 0) {
                     monacoEditorInstance.executeEdits('applica-chunk-merging', [{ range: matches[0].range, text: contenutoMerging }]);
+                    var righeInserite = contenutoMerging.split('\\n').length;
+                    var rigaInizio = matches[0].range.startLineNumber;
+                    statiConflitti[indiceConflitto].rigaFineApplicato = rigaInizio + righeInserite - 1;
                     statiConflitti[indiceConflitto].contenutoApplicato = contenutoMerging;
-                } else if (statiConflitti[indiceConflitto].contenutoApplicato) {
-                    var contenutoPrecedente = statiConflitti[indiceConflitto].contenutoApplicato;
-                    var matchesPrecedenti = model.findMatches(contenutoPrecedente, false, false, true, null, false);
-                    if (matchesPrecedenti.length > 0) {
-                        var rp = matchesPrecedenti[0].range;
-                        var ri = new monaco.Range(rp.endLineNumber, rp.endColumn, rp.endLineNumber, rp.endColumn);
-                        monacoEditorInstance.executeEdits('accoda-chunk-merging', [{ range: ri, text: '\\n' + contenutoMerging }]);
-                        statiConflitti[indiceConflitto].contenutoApplicato = contenutoPrecedente + '\\n' + contenutoMerging;
-                    }
+                } else if (statiConflitti[indiceConflitto].rigaFineApplicato) {
+                    var rigaFine = statiConflitti[indiceConflitto].rigaFineApplicato;
+                    var colonnaFine = model.getLineMaxColumn(rigaFine);
+                    var ri = new monaco.Range(rigaFine, colonnaFine, rigaFine, colonnaFine);
+                    monacoEditorInstance.executeEdits('accoda-chunk-merging', [{ range: ri, text: '\\n' + contenutoMerging }]);
+                    var righeAccodate = contenutoMerging.split('\\n').length;
+                    statiConflitti[indiceConflitto].rigaFineApplicato = rigaFine + righeAccodate;
+                    statiConflitti[indiceConflitto].contenutoApplicato = statiConflitti[indiceConflitto].contenutoApplicato + '\\n' + contenutoMerging;
                 }
                 statiConflitti[indiceConflitto].mergingGestito = true;
                 marcaConflittoComeGestito('merging', indiceConflitto);

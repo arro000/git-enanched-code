@@ -12,7 +12,7 @@ export interface ConflictBlock {
 type State = 'OUTSIDE' | 'IN_HEAD' | 'IN_BASE' | 'IN_MERGING';
 
 export function parseConflicts(document: vscode.TextDocument): ConflictBlock[] {
-    const text = document.getText();
+    const text = document.getText().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const lines = text.split('\n');
     const blocks: ConflictBlock[] = [];
 
