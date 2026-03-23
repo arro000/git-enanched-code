@@ -28,7 +28,7 @@ export interface ConflittoParseato {
 export interface RisoluzionePending {
     indiceConflitto: number;
     resolvedContent: string;
-    sorgente?: string;
+    sorgente?: 'diff3-auto' | 'ast-auto';
     scoreConfidenza?: number;
 }
 
@@ -44,6 +44,7 @@ declare global {
         __MONACO_BASE_URI__: string;
         __LINGUAGGIO_ID__: string;
         _risoluzioniPending: RisoluzionePending[];
+        _risoluzioniDisponibili: Record<number, RisoluzionePending>;
     }
     function acquireVsCodeApi(): VsCodeApi;
     const monaco: any;

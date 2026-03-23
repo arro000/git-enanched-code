@@ -6,9 +6,18 @@
 declare const require: any;
 
 let monacoEditorInstance: any = null;
+const monacoReadyCallbacks: Array<(editor: any) => void> = [];
 
 export function getMonacoInstance(): any {
     return monacoEditorInstance;
+}
+
+export function onMonacoReady(callback: (editor: any) => void): void {
+    if (monacoEditorInstance) {
+        callback(monacoEditorInstance);
+        return;
+    }
+    monacoReadyCallbacks.push(callback);
 }
 
 /** Configura l'AMD loader di Monaco con il base URI fornito. */
@@ -49,6 +58,13 @@ export function creaMonacoEditor(contenutoIniziale: string, linguaggioId: string
             lineDecorationsWidth: 5,
         }
     );
+
+    while (monacoReadyCallbacks.length > 0) {
+        const callback = monacoReadyCallbacks.shift();
+        if (callback) {
+            callback(monacoEditorInstance);
+        }
+    }
 }
 
 /** Carica Monaco via AMD require e crea l'editor. */

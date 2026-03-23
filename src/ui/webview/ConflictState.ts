@@ -37,11 +37,15 @@ export function marcaConflittoComeGestito(colonna: 'head' | 'merging', indiceCon
     const segmentDiv = document.querySelector(selectorColumn + ' [data-conflict-index="' + indiceConflitto + '"]');
     if (segmentDiv) {
         segmentDiv.classList.add('conflict-segment-handled');
-        const handledLabel = document.createElement('div');
-        handledLabel.className = 'handled-label';
-        handledLabel.textContent = 'gestito';
-        const actionBar = segmentDiv.querySelector('.ca');
-        if (actionBar) { actionBar.replaceWith(handledLabel); }
+    }
+    aggiornaContatoreBadge();
+}
+
+export function marcaConflittoComeAperto(colonna: 'head' | 'merging', indiceConflitto: number): void {
+    const selectorColumn = colonna === 'head' ? '#columnHead' : '#columnMerging';
+    const segmentDiv = document.querySelector(selectorColumn + ' [data-conflict-index="' + indiceConflitto + '"]');
+    if (segmentDiv) {
+        segmentDiv.classList.remove('conflict-segment-handled');
     }
     aggiornaContatoreBadge();
 }

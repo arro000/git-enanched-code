@@ -183,11 +183,14 @@ body {
 .ab.am:hover { background: rgba(74,171,247,0.18); }
 .ab.dx { color: var(--foreground-muted); border-color: var(--border); background: transparent; }
 .ab.dx:hover { background: rgba(255,255,255,0.06); color: var(--foreground-dim); }
+.ab.rs { display: none; color: #7ee0c8; border-color: rgba(78,201,176,0.45); background: rgba(78,201,176,0.12); font-weight: 600; margin-left: auto; }
+.ab.rs:hover { background: rgba(78,201,176,0.2); border-color: rgba(78,201,176,0.65); color: #a5f0df; }
 
 /* ── Handled state ── */
-.conflict-segment-handled { opacity: 0.35; }
-.conflict-segment-handled .ca { display: none; }
-.handled-label { font-size: 0.7em; opacity: 0.6; font-style: italic; padding: 2px 8px; }
+.conflict-segment-handled { opacity: 1; }
+.conflict-segment-handled .code-segment { opacity: 0.35; }
+.conflict-segment-handled .ab:not(.rs) { display: none; }
+.conflict-segment-handled .ab.rs { display: inline-flex; }
 
 /* ── Loading ── */
 .loading-indicator {

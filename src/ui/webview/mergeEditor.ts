@@ -16,10 +16,13 @@ import { inizializzaMinimapClick } from './ConflictMinimap/MinimapRenderer';
 import { inizializzaBacchettaMagica } from './SuggestionBadge/AutoResolveHandler';
 import { navigaAlConflitto } from './ConflictNavigator/ConflictNavigator';
 import { chiudiModalConferma } from './MergeModal';
+import { inviaAggiornamentoStato } from './SessionStateSync';
 
 const vscodeApi = acquireVsCodeApi();
 const monacoBaseUri = window.__MONACO_BASE_URI__;
 const linguaggioId = window.__LINGUAGGIO_ID__;
+window._risoluzioniPending = window._risoluzioniPending || [];
+window._risoluzioniDisponibili = window._risoluzioniDisponibili || {};
 
 // Configura Monaco AMD loader
 configuraMonacoLoader(monacoBaseUri);
@@ -42,6 +45,10 @@ document.addEventListener('keydown', function (e) {
             navigaAlConflitto('successivo');
         }
     }
+});
+
+window.addEventListener('beforeunload', function () {
+    inviaAggiornamentoStato(vscodeApi);
 });
 
 // Segnala all'extension host che la webview e' pronta

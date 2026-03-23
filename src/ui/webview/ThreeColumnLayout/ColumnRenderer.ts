@@ -3,8 +3,10 @@
  * dell'applicazione/scarto dei chunk nel Monaco editor centrale.
  */
 import { Segmento, ConflittoParseato } from '../tipiWebview';
-import { statiConflitti, inizializzaStatoConflitto, marcaConflittoComeGestito } from '../ConflictState';
+import { segmentiGlobali, statiConflitti, inizializzaStatoConflitto, marcaConflittoComeAperto, marcaConflittoComeGestito } from '../ConflictState';
 import { getMonacoInstance } from '../MonacoSetup';
+import { inviaAggiornamentoStatoCorrente } from '../SessionStateSync';
+import { riabilitaAutoResolvePerConflitto } from '../SuggestionBadge/AutoResolveHandler';
 
 /** Costruisce i segmenti (comuni + conflitto) dalle righe del documento. */
 export function buildSegmentsFromConflicts(righe: string[], conflitti: ConflittoParseato[]): Segmento[] {
@@ -38,12 +40,39 @@ export function buildInitialResultContent(righe: string[], conflitti: ConflittoP
     return resultLines.join('\n');
 }
 
+function placeholderConflitto(indiceConflitto: number): string {
+    return '// [Conflitto #' + (indiceConflitto + 1) + ' -- irrisolto]';
+}
+
+function ricostruisciContenutoResult(): string {
+    if (!segmentiGlobali) {
+        return '';
+    }
+
+    const resultLines: string[] = [];
+    for (const segmento of segmentiGlobali) {
+        if (segmento.tipo === 'comune') {
+            resultLines.push(segmento.contenuto ?? '');
+            continue;
+        }
+
+        const stato = statiConflitti[segmento.indice!];
+        if (stato?.contenutoApplicato) {
+            resultLines.push(stato.contenutoApplicato);
+        } else {
+            resultLines.push(placeholderConflitto(segmento.indice!));
+        }
+    }
+
+    return resultLines.join('\n');
+}
+
 /** Applica il chunk HEAD nella colonna Result (con supporto accodamento). */
 export function applicaChunkHead(indiceConflitto: number, contenutoHead: string): void {
     const editor = getMonacoInstance();
     if (!editor) return;
     const model = editor.getModel();
-    const placeholder = '// [Conflitto #' + (indiceConflitto + 1) + ' -- irrisolto]';
+    const placeholder = placeholderConflitto(indiceConflitto);
     const matches = model.findMatches(placeholder, false, false, true, null, false);
     if (matches.length > 0) {
         editor.executeEdits('applica-chunk-head', [{ range: matches[0].range, text: contenutoHead }]);
@@ -62,12 +91,14 @@ export function applicaChunkHead(indiceConflitto: number, contenutoHead: string)
     }
     statiConflitti[indiceConflitto].headGestito = true;
     marcaConflittoComeGestito('head', indiceConflitto);
+    inviaAggiornamentoStatoCorrente();
 }
 
 /** Scarta il chunk HEAD senza modificare il Monaco editor. */
 export function scartaChunkHead(indiceConflitto: number): void {
     statiConflitti[indiceConflitto].headGestito = true;
     marcaConflittoComeGestito('head', indiceConflitto);
+    inviaAggiornamentoStatoCorrente();
 }
 
 /** Applica il chunk MERGING nella colonna Result (con supporto accodamento). */
@@ -75,7 +106,7 @@ export function applicaChunkMerging(indiceConflitto: number, contenutoMerging: s
     const editor = getMonacoInstance();
     if (!editor) return;
     const model = editor.getModel();
-    const placeholder = '// [Conflitto #' + (indiceConflitto + 1) + ' -- irrisolto]';
+    const placeholder = placeholderConflitto(indiceConflitto);
     const matches = model.findMatches(placeholder, false, false, true, null, false);
     if (matches.length > 0) {
         editor.executeEdits('applica-chunk-merging', [{ range: matches[0].range, text: contenutoMerging }]);
@@ -94,12 +125,30 @@ export function applicaChunkMerging(indiceConflitto: number, contenutoMerging: s
     }
     statiConflitti[indiceConflitto].mergingGestito = true;
     marcaConflittoComeGestito('merging', indiceConflitto);
+    inviaAggiornamentoStatoCorrente();
 }
 
 /** Scarta il chunk MERGING senza modificare il Monaco editor. */
 export function scartaChunkMerging(indiceConflitto: number): void {
     statiConflitti[indiceConflitto].mergingGestito = true;
     marcaConflittoComeGestito('merging', indiceConflitto);
+    inviaAggiornamentoStatoCorrente();
+}
+
+export function resettaConflitto(indiceConflitto: number): void {
+    const editor = getMonacoInstance();
+    if (!editor) return;
+
+    statiConflitti[indiceConflitto].headGestito = false;
+    statiConflitti[indiceConflitto].mergingGestito = false;
+    statiConflitti[indiceConflitto].contenutoApplicato = null;
+    delete statiConflitti[indiceConflitto].rigaFineApplicato;
+
+    editor.setValue(ricostruisciContenutoResult());
+    marcaConflittoComeAperto('head', indiceConflitto);
+    marcaConflittoComeAperto('merging', indiceConflitto);
+    riabilitaAutoResolvePerConflitto(indiceConflitto);
+    inviaAggiornamentoStatoCorrente();
 }
 
 /** Renderizza le colonne laterali HEAD e MERGING con segmenti e bottoni azione. */
@@ -140,8 +189,17 @@ export function renderColonneLaterali(segmenti: Segmento[]): void {
                 discardButtonHead.addEventListener('click', function () { scartaChunkHead(idx); });
             })(segmento.indice!);
 
+            const resetButtonHead = document.createElement('button');
+            resetButtonHead.className = 'ab rs';
+            resetButtonHead.textContent = '\u21ba Reset';
+            resetButtonHead.title = 'Ripristina il conflitto e riapre entrambe le colonne';
+            (function (idx: number) {
+                resetButtonHead.addEventListener('click', function () { resettaConflitto(idx); });
+            })(segmento.indice!);
+
             actionBarHead.appendChild(applyButtonHead);
             actionBarHead.appendChild(discardButtonHead);
+            actionBarHead.appendChild(resetButtonHead);
             divHead.appendChild(actionBarHead);
 
             const codeContent = document.createElement('div');
@@ -181,8 +239,17 @@ export function renderColonneLaterali(segmenti: Segmento[]): void {
                 discardButtonMerging.addEventListener('click', function () { scartaChunkMerging(idx); });
             })(segmento.indice!);
 
+            const resetButtonMerging = document.createElement('button');
+            resetButtonMerging.className = 'ab rs';
+            resetButtonMerging.textContent = '\u21ba Reset';
+            resetButtonMerging.title = 'Ripristina il conflitto e riapre entrambe le colonne';
+            (function (idx: number) {
+                resetButtonMerging.addEventListener('click', function () { resettaConflitto(idx); });
+            })(segmento.indice!);
+
             actionBarMerging.appendChild(applyButtonMerging);
             actionBarMerging.appendChild(discardButtonMerging);
+            actionBarMerging.appendChild(resetButtonMerging);
             divMerging.appendChild(actionBarMerging);
 
             const codeContentMerging = document.createElement('div');

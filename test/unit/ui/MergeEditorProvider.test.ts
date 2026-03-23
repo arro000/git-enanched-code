@@ -220,6 +220,13 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
             expect(sorgenteColumnRenderer).toContain("divHead.className = 'code-segment'");
             expect(sorgenteColumnRenderer).toContain("divMerging.className = 'code-segment'");
         });
+
+        it('the ColumnRenderer source exposes a reset action for handled conflicts', () => {
+            expect(sorgenteColumnRenderer).toContain("resetButtonHead.textContent = '\\u21ba Reset'");
+            expect(sorgenteColumnRenderer).toContain("resetButtonMerging.textContent = '\\u21ba Reset'");
+            expect(sorgenteColumnRenderer).toContain('function resettaConflitto');
+            expect(sorgenteColumnRenderer).toContain('riabilitaAutoResolvePerConflitto');
+        });
     });
 
     describe('AC3: nessun overflow orizzontale su schermi >= 1280px', () => {
@@ -335,6 +342,11 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
             expect(cssEsterno).toContain('--head-bg');
             expect(cssEsterno).toContain('--merging-bg');
         });
+
+        it('the CSS shows reset button when a conflict has been handled', () => {
+            expect(cssEsterno).toContain('.conflict-segment-handled .ab.rs');
+            expect(cssEsterno).toContain('background: #1f7f69');
+        });
     });
 
     describe('Compatibilita con US-005 (persistenza stato)', () => {
@@ -369,6 +381,21 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
             expect(indiceLayout).toBeLessThan(indiceStato);
         });
 
+        it('the MessageBridge source restores saved editor state only after Monaco is ready', () => {
+            expect(sorgenteMessageBridge).toContain('onMonacoReady');
+            expect(sorgenteMessageBridge).toContain('editor.setValue(stato.contenutoColonnaCentrale)');
+        });
+
+        it('the MessageBridge source reapplies handled conflict state to both side columns', () => {
+            expect(sorgenteMessageBridge).toContain("marcaConflittoComeGestito('head'");
+            expect(sorgenteMessageBridge).toContain("marcaConflittoComeGestito('merging'");
+        });
+
+        it('the MessageBridge source restores auto-resolve metadata for persisted auto decisions', () => {
+            expect(sorgenteMessageBridge).toContain("conflitto.sorgenteApplicata === 'diff3-auto'");
+            expect(sorgenteMessageBridge).toContain('window._risoluzioniDisponibili');
+        });
+
         it('does not send restored state if no previous state exists', async () => {
             mockWorkspaceState.get.mockReturnValue(undefined);
 
@@ -381,6 +408,110 @@ describe('MergeEditorProvider — US-006: Layout 3 colonne', () => {
             );
             expect(chiamatePostMessage).toContain('inizializzaLayout');
             expect(chiamatePostMessage).not.toContain('statoRipristinato');
+        });
+
+        it('ignores legacy saved state with resolved conflicts but missing result content', async () => {
+            const stateManager = new MergeSessionStateManager(mockWorkspaceState as unknown as vscode.Memento);
+            const contenutoDocumento = documento.getText();
+            const hashCorretto = stateManager.calcolaHashContenuto(contenutoDocumento);
+
+            mockWorkspaceState.get.mockReturnValue({
+                percorsoFile: '/workspace/test-file.ts',
+                hashContenutoOriginale: hashCorretto,
+                statiConflitti: [
+                    {
+                        indiceConflitto: 0,
+                        risolto: true,
+                        resolvedContent: 'const x = 1;',
+                        sorgenteApplicata: 'diff3-auto',
+                    },
+                ],
+                contenutoColonnaCentrale: null,
+                ultimoAggiornamento: Date.now(),
+            });
+
+            await inizializzaEditor();
+            const gestoreMessaggi = mockOnDidReceiveMessage.mock.calls[0][0];
+            await gestoreMessaggi({ command: 'webviewPronta' });
+
+            const chiamatePostMessage = mockPostMessage.mock.calls.map(
+                (call: unknown[]) => (call[0] as { command: string }).command
+            );
+            expect(chiamatePostMessage).toContain('inizializzaLayout');
+            expect(chiamatePostMessage).not.toContain('statoRipristinato');
+            expect(mockWorkspaceState.update).toHaveBeenCalledWith(
+                'git-enhanced:mergeState:/workspace/test-file.ts',
+                undefined
+            );
+        });
+
+        it('persists updated result content and resolved conflicts from webview state sync', async () => {
+            const stateManager = new MergeSessionStateManager(mockWorkspaceState as unknown as vscode.Memento);
+            const contenutoDocumento = documento.getText();
+            const hashCorretto = stateManager.calcolaHashContenuto(contenutoDocumento);
+
+            mockWorkspaceState.get.mockReturnValue({
+                percorsoFile: '/workspace/test-file.ts',
+                hashContenutoOriginale: hashCorretto,
+                statiConflitti: [
+                    {
+                        indiceConflitto: 0,
+                        risolto: false,
+                        resolvedContent: null,
+                        sorgenteApplicata: null,
+                    },
+                    {
+                        indiceConflitto: 1,
+                        risolto: false,
+                        resolvedContent: null,
+                        sorgenteApplicata: null,
+                    },
+                ],
+                contenutoColonnaCentrale: null,
+                ultimoAggiornamento: Date.now(),
+            });
+
+            await inizializzaEditor();
+            const gestoreMessaggi = mockOnDidReceiveMessage.mock.calls[0][0];
+            await gestoreMessaggi({
+                command: 'aggiornaStato',
+                contenutoColonnaCentrale: 'merged result content',
+                statiConflitti: [
+                    {
+                        indiceConflitto: 0,
+                        headGestito: true,
+                        mergingGestito: true,
+                        contenutoApplicato: 'const x = 1;',
+                    },
+                    {
+                        indiceConflitto: 1,
+                        headGestito: false,
+                        mergingGestito: false,
+                        contenutoApplicato: null,
+                    },
+                ],
+            });
+
+            expect(mockWorkspaceState.update).toHaveBeenCalledWith(
+                'git-enhanced:mergeState:/workspace/test-file.ts',
+                expect.objectContaining({
+                    contenutoColonnaCentrale: 'merged result content',
+                    statiConflitti: [
+                        expect.objectContaining({
+                            indiceConflitto: 0,
+                            risolto: true,
+                            resolvedContent: 'const x = 1;',
+                            sorgenteApplicata: 'manual',
+                        }),
+                        expect.objectContaining({
+                            indiceConflitto: 1,
+                            risolto: false,
+                            resolvedContent: null,
+                            sorgenteApplicata: null,
+                        }),
+                    ],
+                })
+            );
         });
     });
 });
@@ -651,9 +782,10 @@ describe('MergeEditorProvider — US-008: Applicazione chunk HEAD con >> e x', (
             expect(sorgenteConflictState).toContain("classList.add('conflict-segment-handled')");
         });
 
-        it('the CSS hides action bar for handled segments', () => {
-            expect(cssEsterno).toContain('.conflict-segment-handled .ca');
-            expect(cssEsterno).toContain('display: none');
+        it('the CSS hides normal actions but keeps reset available for handled segments', () => {
+            expect(cssEsterno).toContain('.conflict-segment-handled .ab:not(.rs)');
+            expect(cssEsterno).toContain('.conflict-segment-handled .ab.rs');
+            expect(cssEsterno).toContain('display: inline-flex');
         });
 
         it('the ColumnRenderer source sets data-conflict-index attribute for targeting', () => {
@@ -767,9 +899,10 @@ describe('MergeEditorProvider — US-009: Applicazione chunk MERGING con << e x'
             expect(sorgenteConflictState).toContain("classList.add('conflict-segment-handled')");
         });
 
-        it('the CSS hides action bar for handled segments in both columns', () => {
-            expect(cssEsterno).toContain('.conflict-segment-handled .ca');
-            expect(cssEsterno).toContain('display: none');
+        it('the CSS keeps reset available for handled segments in both columns', () => {
+            expect(cssEsterno).toContain('.conflict-segment-handled .ab:not(.rs)');
+            expect(cssEsterno).toContain('.conflict-segment-handled .ab.rs');
+            expect(cssEsterno).toContain('display: inline-flex');
         });
 
         it('the ColumnRenderer source sets data-conflict-index on MERGING conflict segments', () => {

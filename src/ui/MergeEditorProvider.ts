@@ -126,7 +126,15 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             contenutoOriginale
         );
 
-        if (!statoEsistente) {
+        const statoDaRipristinare = statoEsistente && this.statoRipristinabile(statoEsistente)
+            ? statoEsistente
+            : null;
+
+        if (statoEsistente && !statoDaRipristinare) {
+            await this.stateManager.cancellaStato(document.uri.fsPath);
+        }
+
+        if (!statoDaRipristinare) {
             const numeroConflitti = countConflicts(document);
             const statoIniziale = this.stateManager.creaStatoIniziale(
                 document.uri.fsPath,
@@ -137,7 +145,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
         }
 
         const indiciGiaRisolti = new Set(
-            (statoEsistente?.statiConflitti ?? [])
+            (statoDaRipristinare?.statiConflitti ?? [])
                 .filter(s => s.risolto)
                 .map(s => s.indiceConflitto)
         );
@@ -192,7 +200,18 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             }
         }
 
-        return { statoEsistente, risoluzionePending };
+        return { statoEsistente: statoDaRipristinare, risoluzionePending };
+    }
+
+    private statoRipristinabile(
+        stato: Awaited<ReturnType<MergeSessionStateManager['recuperaStato']>>
+    ): boolean {
+        if (!stato) {
+            return false;
+        }
+
+        const haConflittiRisolti = stato.statiConflitti.some(conflitto => conflitto.risolto);
+        return !haConflittiRisolti || stato.contenutoColonnaCentrale !== null;
     }
 
     public openForDocument(document: vscode.TextDocument): void {

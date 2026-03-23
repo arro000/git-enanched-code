@@ -115,7 +115,13 @@ export class GestoreMessaggiWebview {
 
     private async gestisciBacchettaMagica(
         document: vscode.TextDocument,
-        messaggio: { risoluzioni?: Array<{ indiceConflitto: number; resolvedContent: string; sorgente?: string }> },
+        messaggio: {
+            risoluzioni?: Array<{
+                indiceConflitto: number;
+                resolvedContent: string;
+                sorgente?: 'diff3-auto' | 'ast-auto';
+            }>;
+        },
     ): Promise<void> {
         if (messaggio.risoluzioni && Array.isArray(messaggio.risoluzioni)) {
             const statoCorrente = await this.stateManager.recuperaStato(
@@ -137,10 +143,45 @@ export class GestoreMessaggiWebview {
 
     private async gestisciAggiornaStato(
         document: vscode.TextDocument,
-        messaggio: { stato?: { percorsoFile: string } },
+        messaggio: {
+            contenutoColonnaCentrale?: string;
+            statiConflitti?: Array<{
+                indiceConflitto: number;
+                headGestito: boolean;
+                mergingGestito: boolean;
+                contenutoApplicato: string | null;
+            }>;
+        },
     ): Promise<void> {
-        if (messaggio.stato && messaggio.stato.percorsoFile === document.uri.fsPath) {
-            await this.stateManager.salvaStato(messaggio.stato as any);
+        const statoCorrente = await this.stateManager.recuperaStato(
+            document.uri.fsPath,
+            document.getText()
+        );
+        if (!statoCorrente) {
+            return;
         }
+
+        statoCorrente.contenutoColonnaCentrale = messaggio.contenutoColonnaCentrale ?? null;
+
+        if (Array.isArray(messaggio.statiConflitti)) {
+            for (const statoWebview of messaggio.statiConflitti) {
+                const statoConflitto = statoCorrente.statiConflitti[statoWebview.indiceConflitto];
+                if (!statoConflitto) {
+                    continue;
+                }
+
+                const conflittoRisolto = statoWebview.headGestito && statoWebview.mergingGestito;
+                statoConflitto.risolto = conflittoRisolto;
+                statoConflitto.resolvedContent = statoWebview.contenutoApplicato;
+
+                if (!conflittoRisolto) {
+                    statoConflitto.sorgenteApplicata = null;
+                } else if (!statoConflitto.sorgenteApplicata && statoWebview.contenutoApplicato) {
+                    statoConflitto.sorgenteApplicata = 'manual' as const;
+                }
+            }
+        }
+
+        await this.stateManager.salvaStato(statoCorrente);
     }
 }
