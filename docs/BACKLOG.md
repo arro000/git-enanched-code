@@ -384,6 +384,7 @@ in modo da beneficiare dello smart merge nei linguaggi che uso quotidianamente s
 #### US-017: Minimap laterale con highlight stato conflitti
 
 **Epic:** EP-004 | **Priority:** HIGH | **Story Points:** 3
+**Status:** REVIEW
 
 **Story**
 Come developer,
@@ -400,6 +401,7 @@ in modo da avere sempre una visione d'insieme e capire immediatamente quanti con
 #### US-018: Contatore numerico conflitti aperti persistente
 
 **Epic:** EP-004 | **Priority:** HIGH | **Story Points:** 1
+**Status:** REVIEW
 
 **Story**
 Come developer,
@@ -416,6 +418,7 @@ in modo da monitorare il progresso della risoluzione senza dover scorrere il doc
 #### US-019: Navigazione al conflitto successivo/precedente con F7/Shift+F7
 
 **Epic:** EP-004 | **Priority:** HIGH | **Story Points:** 2
+**Status:** REVIEW
 
 **Story**
 Come Marco (Senior Developer),
@@ -432,6 +435,7 @@ in modo da navigare rapidamente tra i conflitti senza usare il mouse e mantenere
 #### US-020: Click su minimap per navigazione diretta nel documento
 
 **Epic:** EP-004 | **Priority:** MEDIUM | **Story Points:** 2
+**Status:** REVIEW
 
 **Story**
 Come developer,
@@ -448,6 +452,7 @@ in modo da raggiungere rapidamente qualsiasi conflitto senza dover scorrere manu
 #### US-021: Navigazione scroll/trackpad naturale e sincronizzata
 
 **Epic:** EP-004 | **Priority:** MEDIUM | **Story Points:** 1
+**Status:** REVIEW
 
 **Story**
 Come developer,

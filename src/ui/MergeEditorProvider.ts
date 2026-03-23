@@ -471,7 +471,9 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             flex-direction: column;
             overflow: hidden;
         }
-        .mm-seg { width: 100%; flex-shrink: 0; }
+        .mm-seg { width: 100%; flex-shrink: 0; cursor: pointer; }
+        .mm-seg[data-mm-conflict] { cursor: pointer; }
+        .mm-seg:hover { opacity: 0.8; }
 
         /* ── Status bar ── */
         .statusbar {
@@ -773,9 +775,43 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                         el.setAttribute('data-mm-conflict', s.indice);
                     }
                     el.style.flex = linee + ' 0 0px';
+                    // US-020: Store segment index for click navigation
+                    el.setAttribute('data-mm-segment', i);
                     container.appendChild(el);
                 }
             }
+
+            // US-020: Click on minimap to navigate to corresponding position
+            document.getElementById('minimapContainer').addEventListener('click', function(e) {
+                var target = e.target;
+                if (!target || !target.hasAttribute('data-mm-segment')) return;
+
+                var segIdx = parseInt(target.getAttribute('data-mm-segment'), 10);
+                if (isNaN(segIdx) || !segmentiGlobali || segIdx >= segmentiGlobali.length) return;
+
+                var segmento = segmentiGlobali[segIdx];
+
+                // If it's a conflict segment, navigate to that conflict
+                if (segmento.tipo === 'conflitto' && segmento.indice !== undefined) {
+                    var conflictEl = document.querySelector('#columnResult [data-conflict-index="' + segmento.indice + '"]');
+                    if (!conflictEl) {
+                        conflictEl = document.querySelector('[data-conflict-index="' + segmento.indice + '"]');
+                    }
+                    if (conflictEl) {
+                        conflictEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        conflictEl.style.outline = '2px solid var(--result-teal)';
+                        setTimeout(function() { conflictEl.style.outline = ''; }, 1500);
+                    }
+                } else {
+                    // Scroll proportionally based on segment position
+                    var resultColumn = document.getElementById('columnResult');
+                    if (resultColumn) {
+                        var fraction = segIdx / segmentiGlobali.length;
+                        var scrollTarget = resultColumn.scrollHeight * fraction;
+                        resultColumn.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+                    }
+                }
+            });
 
             // Mark a conflict segment as visually handled; update counter
             function marcaConflittoComeGestito(colonna, indiceConflitto) {
@@ -966,10 +1002,65 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 chiudiModalConferma();
             });
 
-            // US-011: Chiusura modal con Escape
+            // US-011: Chiusura modal con Escape + US-019: F7/Shift+F7 navigation
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') { chiudiModalConferma(); }
+                if (e.key === 'F7') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        navigaAlConflitto('precedente');
+                    } else {
+                        navigaAlConflitto('successivo');
+                    }
+                }
             });
+
+            // US-019: Navigate to next/previous unresolved conflict
+            var indiceConflittoCorrente = -1;
+            function navigaAlConflitto(direzione) {
+                var conflictZones = document.querySelectorAll('[data-conflict-index]');
+                if (conflictZones.length === 0) return;
+
+                // Build list of unresolved conflict indices
+                var indiciAperti = [];
+                for (var i = 0; i < conflictZones.length; i++) {
+                    var indice = parseInt(conflictZones[i].getAttribute('data-conflict-index'), 10);
+                    var stato = statiConflitti[indice];
+                    if (!stato || !(stato.headGestito && stato.mergingGestito)) {
+                        indiciAperti.push(indice);
+                    }
+                }
+                if (indiciAperti.length === 0) return;
+
+                // Find next or previous
+                var nuovoIndice;
+                if (direzione === 'successivo') {
+                    nuovoIndice = indiciAperti.find(function(idx) { return idx > indiceConflittoCorrente; });
+                    if (nuovoIndice === undefined) nuovoIndice = indiciAperti[indiciAperti.length - 1];
+                } else {
+                    for (var j = indiciAperti.length - 1; j >= 0; j--) {
+                        if (indiciAperti[j] < indiceConflittoCorrente) {
+                            nuovoIndice = indiciAperti[j];
+                            break;
+                        }
+                    }
+                    if (nuovoIndice === undefined) nuovoIndice = indiciAperti[0];
+                }
+
+                indiceConflittoCorrente = nuovoIndice;
+
+                // Scroll to the conflict zone in the result column
+                var target = document.querySelector('#columnResult [data-conflict-index="' + nuovoIndice + '"]');
+                if (!target) {
+                    target = document.querySelector('[data-conflict-index="' + nuovoIndice + '"]');
+                }
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Brief highlight
+                    target.style.outline = '2px solid var(--result-teal)';
+                    setTimeout(function() { target.style.outline = ''; }, 1500);
+                }
+            }
 
             // US-011: Chiusura modal con click sull'overlay esterno
             document.getElementById('modalConfermaOverlay').addEventListener('click', function(e) {
@@ -1052,6 +1143,30 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                     window._risoluzioniPending = [];
                 });
             }
+
+            // US-021: Synchronized scroll between the 3 columns
+            (function() {
+                var colHead = document.getElementById('columnHead');
+                var colResult = document.getElementById('columnResult');
+                var colMerging = document.getElementById('columnMerging');
+                var scrolling = false;
+
+                function sincronizzaScroll(sorgente) {
+                    if (scrolling) return;
+                    scrolling = true;
+                    var fraction = sorgente.scrollTop / (sorgente.scrollHeight - sorgente.clientHeight || 1);
+                    [colHead, colResult, colMerging].forEach(function(col) {
+                        if (col && col !== sorgente) {
+                            col.scrollTop = fraction * (col.scrollHeight - col.clientHeight);
+                        }
+                    });
+                    requestAnimationFrame(function() { scrolling = false; });
+                }
+
+                if (colHead) colHead.addEventListener('scroll', function() { sincronizzaScroll(colHead); });
+                if (colResult) colResult.addEventListener('scroll', function() { sincronizzaScroll(colResult); });
+                if (colMerging) colMerging.addEventListener('scroll', function() { sincronizzaScroll(colMerging); });
+            })();
 
             vscode.postMessage({ command: 'webviewPronta' });
         })();
