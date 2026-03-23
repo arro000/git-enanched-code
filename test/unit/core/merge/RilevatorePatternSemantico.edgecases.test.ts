@@ -43,7 +43,7 @@ describe('RilevatorePatternSemantico — edge case', () => {
             expect(risultato).not.toBeNull();
             expect(risultato!.patternRilevato).toBe('import-indipendenti');
             // L'import duplicato non dovrebbe apparire due volte nel risultato
-            const occorrenze = risultato!.contenutoRisolto.split("from './b'").length - 1;
+            const occorrenze = risultato!.resolvedContent.split("from './b'").length - 1;
             expect(occorrenze).toBe(1);
         });
 
@@ -66,9 +66,9 @@ describe('RilevatorePatternSemantico — edge case', () => {
             expect(risultato).not.toBeNull();
             expect(risultato!.patternRilevato).toBe('import-indipendenti');
             // Deve contenere b, c, d senza duplicare b
-            expect(risultato!.contenutoRisolto).toContain("from './b'");
-            expect(risultato!.contenutoRisolto).toContain("from './c'");
-            expect(risultato!.contenutoRisolto).toContain("from './d'");
+            expect(risultato!.resolvedContent).toContain("from './b'");
+            expect(risultato!.resolvedContent).toContain("from './c'");
+            expect(risultato!.resolvedContent).toContain("from './d'");
         });
     });
 

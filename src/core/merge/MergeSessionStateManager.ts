@@ -9,7 +9,7 @@ export interface StatoRisoluzioneConflitto {
     /** Whether the conflict has been resolved */
     risolto: boolean;
     /** The resolved content for this conflict (null if not yet resolved) */
-    contenutoRisolto: string | null;
+    resolvedContent: string | null;
     /** Which source was applied: 'head', 'merging', 'both', 'manual', or null if unresolved */
     sorgenteApplicata: 'head' | 'merging' | 'both' | 'manual' | 'diff3-auto' | 'ast-auto' | null;
 }
@@ -109,7 +109,7 @@ export class MergeSessionStateManager {
             statiConflitti.push({
                 indiceConflitto: i,
                 risolto: false,
-                contenutoRisolto: null,
+                resolvedContent: null,
                 sorgenteApplicata: null,
             });
         }

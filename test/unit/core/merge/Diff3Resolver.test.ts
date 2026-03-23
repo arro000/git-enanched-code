@@ -29,7 +29,7 @@ describe('Diff3Resolver', () => {
 
             expect(risultato.risolvibileAutomaticamente).toBe(false);
             expect(risultato.motivoNonRisolto).toBe('base-assente');
-            expect(risultato.contenutoRisolto).toBeNull();
+            expect(risultato.resolvedContent).toBeNull();
         });
 
         it('risolve quando solo HEAD modifica (MERGING identico a BASE)', () => {
@@ -42,7 +42,7 @@ describe('Diff3Resolver', () => {
             const risultato = resolver.risolviSingoloConflitto(conflitto);
 
             expect(risultato.risolvibileAutomaticamente).toBe(true);
-            expect(risultato.contenutoRisolto).toBe('const x = 42;');
+            expect(risultato.resolvedContent).toBe('const x = 42;');
             expect(risultato.motivoNonRisolto).toBeNull();
         });
 
@@ -56,7 +56,7 @@ describe('Diff3Resolver', () => {
             const risultato = resolver.risolviSingoloConflitto(conflitto);
 
             expect(risultato.risolvibileAutomaticamente).toBe(true);
-            expect(risultato.contenutoRisolto).toBe('const x = 99;');
+            expect(risultato.resolvedContent).toBe('const x = 99;');
         });
 
         it('risolve modifiche non sovrapposte su righe diverse', () => {
@@ -69,7 +69,7 @@ describe('Diff3Resolver', () => {
             const risultato = resolver.risolviSingoloConflitto(conflitto);
 
             expect(risultato.risolvibileAutomaticamente).toBe(true);
-            expect(risultato.contenutoRisolto).toBe('riga1-head\nriga2\nriga3-merging');
+            expect(risultato.resolvedContent).toBe('riga1-head\nriga2\nriga3-merging');
         });
 
         it('non risolve quando entrambi modificano la stessa riga', () => {
@@ -95,10 +95,10 @@ describe('Diff3Resolver', () => {
             const risultato = resolver.risolviSingoloConflitto(conflitto);
 
             expect(risultato.risolvibileAutomaticamente).toBe(true);
-            expect(risultato.contenutoRisolto).toContain('nuova-head');
-            expect(risultato.contenutoRisolto).toContain('nuova-merging');
-            expect(risultato.contenutoRisolto).toContain('riga1');
-            expect(risultato.contenutoRisolto).toContain('riga2');
+            expect(risultato.resolvedContent).toContain('nuova-head');
+            expect(risultato.resolvedContent).toContain('nuova-merging');
+            expect(risultato.resolvedContent).toContain('riga1');
+            expect(risultato.resolvedContent).toContain('riga2');
         });
 
         it('risolve rimozioni non sovrapposte', () => {
@@ -111,7 +111,7 @@ describe('Diff3Resolver', () => {
             const risultato = resolver.risolviSingoloConflitto(conflitto);
 
             expect(risultato.risolvibileAutomaticamente).toBe(true);
-            expect(risultato.contenutoRisolto).toBe('riga2\nriga3');
+            expect(risultato.resolvedContent).toBe('riga2\nriga3');
         });
 
         it('non risolve quando un lato rimuove e l altro modifica la stessa riga', () => {
@@ -137,7 +137,7 @@ describe('Diff3Resolver', () => {
             const risultato = resolver.risolviSingoloConflitto(conflitto);
 
             expect(risultato.risolvibileAutomaticamente).toBe(true);
-            expect(risultato.contenutoRisolto).toBe('');
+            expect(risultato.resolvedContent).toBe('');
         });
 
         it('risolve quando HEAD e MERGING e BASE sono identici', () => {
@@ -150,7 +150,7 @@ describe('Diff3Resolver', () => {
             const risultato = resolver.risolviSingoloConflitto(conflitto);
 
             expect(risultato.risolvibileAutomaticamente).toBe(true);
-            expect(risultato.contenutoRisolto).toBe('const x = 1;\nconst y = 2;');
+            expect(risultato.resolvedContent).toBe('const x = 1;\nconst y = 2;');
         });
 
         it('preserva l indice del conflitto nel risultato', () => {
@@ -224,7 +224,7 @@ describe('Diff3Resolver', () => {
             const risultato = resolver.risolviConflitti(conflitti);
 
             expect(risultato.conflittiRisolti[0].risolvibileAutomaticamente).toBe(true);
-            expect(risultato.conflittiRisolti[0].contenutoRisolto).toBe('a-head\nb-merging');
+            expect(risultato.conflittiRisolti[0].resolvedContent).toBe('a-head\nb-merging');
             expect(risultato.conflittiRisolti[1].risolvibileAutomaticamente).toBe(false);
         });
 

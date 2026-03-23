@@ -31,7 +31,7 @@ describe('Persistenza stato sessione — integrazione con pipeline di risoluzion
 
             // Simula risoluzione diff3-auto del primo conflitto
             stato.statiConflitti[0].risolto = true;
-            stato.statiConflitti[0].contenutoRisolto = 'const x = 42;';
+            stato.statiConflitti[0].resolvedContent = 'const x = 42;';
             stato.statiConflitti[0].sorgenteApplicata = 'diff3-auto';
 
             await gestore.salvaStato(stato);
@@ -40,7 +40,7 @@ describe('Persistenza stato sessione — integrazione con pipeline di risoluzion
 
             expect(recuperato).not.toBeNull();
             expect(recuperato!.statiConflitti[0].risolto).toBe(true);
-            expect(recuperato!.statiConflitti[0].contenutoRisolto).toBe('const x = 42;');
+            expect(recuperato!.statiConflitti[0].resolvedContent).toBe('const x = 42;');
             expect(recuperato!.statiConflitti[0].sorgenteApplicata).toBe('diff3-auto');
             expect(recuperato!.statiConflitti[1].risolto).toBe(false);
             expect(recuperato!.statiConflitti[2].risolto).toBe(false);
@@ -50,7 +50,7 @@ describe('Persistenza stato sessione — integrazione con pipeline di risoluzion
             const stato = gestore.creaStatoIniziale(PERCORSO_FILE_A, CONTENUTO_ORIGINALE, 2);
 
             stato.statiConflitti[0].risolto = true;
-            stato.statiConflitti[0].contenutoRisolto = 'import { a } from "./a";\nimport { b } from "./b";';
+            stato.statiConflitti[0].resolvedContent = 'import { a } from "./a";\nimport { b } from "./b";';
             stato.statiConflitti[0].sorgenteApplicata = 'ast-auto';
 
             await gestore.salvaStato(stato);
@@ -59,14 +59,14 @@ describe('Persistenza stato sessione — integrazione con pipeline di risoluzion
 
             expect(recuperato).not.toBeNull();
             expect(recuperato!.statiConflitti[0].sorgenteApplicata).toBe('ast-auto');
-            expect(recuperato!.statiConflitti[0].contenutoRisolto).toContain('import');
+            expect(recuperato!.statiConflitti[0].resolvedContent).toContain('import');
         });
 
         it('crea stato, applica risoluzione manuale, salva e recupera', async () => {
             const stato = gestore.creaStatoIniziale(PERCORSO_FILE_A, CONTENUTO_ORIGINALE, 1);
 
             stato.statiConflitti[0].risolto = true;
-            stato.statiConflitti[0].contenutoRisolto = 'codice scritto manualmente dall utente';
+            stato.statiConflitti[0].resolvedContent = 'codice scritto manualmente dall utente';
             stato.statiConflitti[0].sorgenteApplicata = 'manual';
 
             await gestore.salvaStato(stato);
@@ -75,7 +75,7 @@ describe('Persistenza stato sessione — integrazione con pipeline di risoluzion
 
             expect(recuperato).not.toBeNull();
             expect(recuperato!.statiConflitti[0].sorgenteApplicata).toBe('manual');
-            expect(recuperato!.statiConflitti[0].contenutoRisolto).toBe('codice scritto manualmente dall utente');
+            expect(recuperato!.statiConflitti[0].resolvedContent).toBe('codice scritto manualmente dall utente');
         });
     });
 
@@ -85,15 +85,15 @@ describe('Persistenza stato sessione — integrazione con pipeline di risoluzion
             const stato = gestore.creaStatoIniziale(PERCORSO_FILE_A, CONTENUTO_ORIGINALE, 3);
 
             stato.statiConflitti[0].risolto = true;
-            stato.statiConflitti[0].contenutoRisolto = 'risolto da diff3';
+            stato.statiConflitti[0].resolvedContent = 'risolto da diff3';
             stato.statiConflitti[0].sorgenteApplicata = 'diff3-auto';
 
             stato.statiConflitti[1].risolto = true;
-            stato.statiConflitti[1].contenutoRisolto = 'risolto da ast';
+            stato.statiConflitti[1].resolvedContent = 'risolto da ast';
             stato.statiConflitti[1].sorgenteApplicata = 'ast-auto';
 
             stato.statiConflitti[2].risolto = true;
-            stato.statiConflitti[2].contenutoRisolto = 'risolto manualmente';
+            stato.statiConflitti[2].resolvedContent = 'risolto manualmente';
             stato.statiConflitti[2].sorgenteApplicata = 'manual';
 
             await gestore.salvaStato(stato);
@@ -114,19 +114,19 @@ describe('Persistenza stato sessione — integrazione con pipeline di risoluzion
             // Step 1: Diff3 risolve il primo
             stato.statiConflitti[0].risolto = true;
             stato.statiConflitti[0].sorgenteApplicata = 'diff3-auto';
-            stato.statiConflitti[0].contenutoRisolto = 'diff3 result';
+            stato.statiConflitti[0].resolvedContent = 'diff3 result';
             await gestore.salvaStato(stato);
 
             // Step 2: AST risolve il secondo
             stato.statiConflitti[1].risolto = true;
             stato.statiConflitti[1].sorgenteApplicata = 'ast-auto';
-            stato.statiConflitti[1].contenutoRisolto = 'ast result';
+            stato.statiConflitti[1].resolvedContent = 'ast result';
             await gestore.salvaStato(stato);
 
             // Step 3: Utente risolve il terzo manualmente
             stato.statiConflitti[2].risolto = true;
             stato.statiConflitti[2].sorgenteApplicata = 'manual';
-            stato.statiConflitti[2].contenutoRisolto = 'manual result';
+            stato.statiConflitti[2].resolvedContent = 'manual result';
             stato.contenutoColonnaCentrale = 'contenuto completo della colonna centrale';
             await gestore.salvaStato(stato);
 
@@ -144,7 +144,7 @@ describe('Persistenza stato sessione — integrazione con pipeline di risoluzion
             stato.contenutoColonnaCentrale = 'contenuto iniziale colonna centrale';
             stato.statiConflitti[0].risolto = true;
             stato.statiConflitti[0].sorgenteApplicata = 'head';
-            stato.statiConflitti[0].contenutoRisolto = 'const x = 1;';
+            stato.statiConflitti[0].resolvedContent = 'const x = 1;';
             await gestore.salvaStato(stato);
 
             const recuperato = await gestore.recuperaStato(PERCORSO_FILE_A, CONTENUTO_ORIGINALE);
@@ -158,7 +158,7 @@ describe('Persistenza stato sessione — integrazione con pipeline di risoluzion
             const stato = gestore.creaStatoIniziale(PERCORSO_FILE_A, CONTENUTO_ORIGINALE, 2);
             stato.statiConflitti[0].risolto = true;
             stato.statiConflitti[0].sorgenteApplicata = 'diff3-auto';
-            stato.statiConflitti[0].contenutoRisolto = 'risolto';
+            stato.statiConflitti[0].resolvedContent = 'risolto';
             await gestore.salvaStato(stato);
 
             // Il file viene modificato esternamente
@@ -199,13 +199,13 @@ describe('Persistenza stato sessione — integrazione con pipeline di risoluzion
             const statoA = gestore.creaStatoIniziale(PERCORSO_FILE_A, CONTENUTO_ORIGINALE, 2);
             statoA.statiConflitti[0].risolto = true;
             statoA.statiConflitti[0].sorgenteApplicata = 'diff3-auto';
-            statoA.statiConflitti[0].contenutoRisolto = 'risolto A';
+            statoA.statiConflitti[0].resolvedContent = 'risolto A';
 
             const contenutoB = 'contenuto diverso del file B';
             const statoB = gestore.creaStatoIniziale(PERCORSO_FILE_B, contenutoB, 3);
             statoB.statiConflitti[1].risolto = true;
             statoB.statiConflitti[1].sorgenteApplicata = 'ast-auto';
-            statoB.statiConflitti[1].contenutoRisolto = 'risolto B';
+            statoB.statiConflitti[1].resolvedContent = 'risolto B';
 
             await gestore.salvaStato(statoA);
             await gestore.salvaStato(statoB);

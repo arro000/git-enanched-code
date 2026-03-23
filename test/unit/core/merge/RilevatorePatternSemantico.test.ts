@@ -41,8 +41,8 @@ describe('RilevatorePatternSemantico', () => {
             expect(risultato).not.toBeNull();
             expect(risultato!.patternRilevato).toBe('import-indipendenti');
             expect(risultato!.scoreConfidenza).toBe(0.95);
-            expect(risultato!.contenutoRisolto).toContain("from './b'");
-            expect(risultato!.contenutoRisolto).toContain("from './c'");
+            expect(risultato!.resolvedContent).toContain("from './b'");
+            expect(risultato!.resolvedContent).toContain("from './c'");
         });
 
         it('non risolve import dallo stesso modulo con contenuti diversi', () => {
@@ -98,8 +98,8 @@ describe('RilevatorePatternSemantico', () => {
             expect(risultato).not.toBeNull();
             expect(risultato!.patternRilevato).toBe('metodi-aggiunti');
             expect(risultato!.scoreConfidenza).toBe(0.85);
-            expect(risultato!.contenutoRisolto).toContain('nuovaHead');
-            expect(risultato!.contenutoRisolto).toContain('nuovaMerging');
+            expect(risultato!.resolvedContent).toContain('nuovaHead');
+            expect(risultato!.resolvedContent).toContain('nuovaMerging');
         });
 
         it('non risolve quando entrambi aggiungono funzione con stesso nome', () => {

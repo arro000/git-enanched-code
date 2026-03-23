@@ -9,7 +9,7 @@ import { RilevatorePatternSemantico } from './RilevatorePatternSemantico';
 export interface RisultatoRisoluzioneAst {
     indiceConflitto: number;
     risolvibileAutomaticamente: boolean;
-    contenutoRisolto: string | null;
+    resolvedContent: string | null;
     scoreConfidenza: number;
     patternRilevato: string | null;
 }
@@ -68,7 +68,7 @@ export class AnalizzatoreAstConflitti {
                 conflittiAnalizzati: conflitti.map(c => ({
                     indiceConflitto: c.index,
                     risolvibileAutomaticamente: false,
-                    contenutoRisolto: null,
+                    resolvedContent: null,
                     scoreConfidenza: 0,
                     patternRilevato: null,
                 })),
@@ -132,7 +132,7 @@ export class AnalizzatoreAstConflitti {
                 return {
                     indiceConflitto: conflitto.index,
                     risolvibileAutomaticamente: true,
-                    contenutoRisolto: risultatoPattern.contenutoRisolto,
+                    resolvedContent: risultatoPattern.resolvedContent,
                     scoreConfidenza: risultatoPattern.scoreConfidenza,
                     patternRilevato: risultatoPattern.patternRilevato,
                 };
@@ -208,7 +208,7 @@ export class AnalizzatoreAstConflitti {
         return {
             indiceConflitto,
             risolvibileAutomaticamente: false,
-            contenutoRisolto: null,
+            resolvedContent: null,
             scoreConfidenza: 0,
             patternRilevato: null,
         };

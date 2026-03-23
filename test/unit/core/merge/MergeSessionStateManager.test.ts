@@ -107,7 +107,7 @@ describe('MergeSessionStateManager', () => {
         it('saves and retrieves state correctly', async () => {
             const stato = gestore.creaStatoIniziale(PERCORSO_FILE, FILE_CON_CONFLITTI, 2);
             stato.statiConflitti[0].risolto = true;
-            stato.statiConflitti[0].contenutoRisolto = 'const x = 1;';
+            stato.statiConflitti[0].resolvedContent = 'const x = 1;';
             stato.statiConflitti[0].sorgenteApplicata = 'head';
 
             await gestore.salvaStato(stato);
@@ -115,7 +115,7 @@ describe('MergeSessionStateManager', () => {
 
             expect(statoRecuperato).not.toBeNull();
             expect(statoRecuperato!.statiConflitti[0].risolto).toBe(true);
-            expect(statoRecuperato!.statiConflitti[0].contenutoRisolto).toBe('const x = 1;');
+            expect(statoRecuperato!.statiConflitti[0].resolvedContent).toBe('const x = 1;');
             expect(statoRecuperato!.statiConflitti[0].sorgenteApplicata).toBe('head');
             expect(statoRecuperato!.statiConflitti[1].risolto).toBe(false);
         });
@@ -201,7 +201,7 @@ describe('MergeSessionStateManager', () => {
             // Simulate: user resolves first conflict, closes and reopens
             const stato = gestore.creaStatoIniziale(PERCORSO_FILE, FILE_CON_CONFLITTI, 2);
             stato.statiConflitti[0].risolto = true;
-            stato.statiConflitti[0].contenutoRisolto = 'const x = 1;';
+            stato.statiConflitti[0].resolvedContent = 'const x = 1;';
             stato.statiConflitti[0].sorgenteApplicata = 'head';
             stato.contenutoColonnaCentrale = 'some code\nconst x = 1;\nmore code\n';
 
@@ -212,7 +212,7 @@ describe('MergeSessionStateManager', () => {
 
             expect(statoRipristinato).not.toBeNull();
             expect(statoRipristinato!.statiConflitti[0].risolto).toBe(true);
-            expect(statoRipristinato!.statiConflitti[0].contenutoRisolto).toBe('const x = 1;');
+            expect(statoRipristinato!.statiConflitti[0].resolvedContent).toBe('const x = 1;');
             expect(statoRipristinato!.contenutoColonnaCentrale).toBe('some code\nconst x = 1;\nmore code\n');
         });
 
@@ -237,7 +237,7 @@ describe('MergeSessionStateManager', () => {
             const statoRipristinato = await gestore.recuperaStato(PERCORSO_FILE, FILE_CON_CONFLITTI);
 
             expect(statoRipristinato!.statiConflitti[0].risolto).toBe(false);
-            expect(statoRipristinato!.statiConflitti[0].contenutoRisolto).toBeNull();
+            expect(statoRipristinato!.statiConflitti[0].resolvedContent).toBeNull();
             expect(statoRipristinato!.statiConflitti[1].risolto).toBe(true);
         });
     });

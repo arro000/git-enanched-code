@@ -76,7 +76,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
 
             // US-012/US-014: Auto-resolve con diff3 e AST
             let risultatoDiff3: RisultatoAnalisiDiff3 | null = null;
-            let risoluzionePending: Array<{ indiceConflitto: number; contenutoRisolto: string; sorgente: string; scoreConfidenza: number }> = [];
+            let risoluzionePending: Array<{ indiceConflitto: number; resolvedContent: string; sorgente: string; scoreConfidenza: number }> = [];
 
             if (!statoEsistente) {
                 // Create initial state for a new merge session
@@ -112,10 +112,10 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                 // US-014: Collect all pending resolutions (NOT applied until magic wand click)
 
                 for (const ris of risultatoDiff3.conflittiRisolti) {
-                    if (ris.risolvibileAutomaticamente && ris.contenutoRisolto !== null) {
+                    if (ris.risolvibileAutomaticamente && ris.resolvedContent !== null) {
                         risoluzionePending.push({
                             indiceConflitto: ris.indiceConflitto,
-                            contenutoRisolto: ris.contenutoRisolto,
+                            resolvedContent: ris.resolvedContent,
                             sorgente: 'diff3-auto',
                             scoreConfidenza: 1.0, // diff3 has maximum confidence
                         });
@@ -124,10 +124,10 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
 
                 if (risultatoAst) {
                     for (const ris of risultatoAst.conflittiAnalizzati) {
-                        if (ris.risolvibileAutomaticamente && ris.contenutoRisolto !== null) {
+                        if (ris.risolvibileAutomaticamente && ris.resolvedContent !== null) {
                             risoluzionePending.push({
                                 indiceConflitto: ris.indiceConflitto,
-                                contenutoRisolto: ris.contenutoRisolto,
+                                resolvedContent: ris.resolvedContent,
                                 sorgente: 'ast-auto',
                                 scoreConfidenza: ris.scoreConfidenza,
                             });
@@ -168,6 +168,16 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                             });
                         }
                     } else if (messaggio.command === 'completaMerge') {
+                        // Write resolved content from the Result column into the document
+                        if (messaggio.resolvedContent != null) {
+                            const editApplicata = new vscode.WorkspaceEdit();
+                            const tuttoIlDocumento = new vscode.Range(
+                                document.lineAt(0).range.start,
+                                document.lineAt(document.lineCount - 1).range.end
+                            );
+                            editApplicata.replace(document.uri, tuttoIlDocumento, messaggio.resolvedContent);
+                            await vscode.workspace.applyEdit(editApplicata);
+                        }
                         const risultato = await this.mergeCompletionService.completaMerge(document);
                         if (risultato.successo) {
                             // US-005: Clear saved state after successful merge completion
@@ -200,7 +210,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                                     const statoConflitto = statoCorrente.statiConflitti[ris.indiceConflitto];
                                     if (statoConflitto && !statoConflitto.risolto) {
                                         statoConflitto.risolto = true;
-                                        statoConflitto.contenutoRisolto = ris.contenutoRisolto;
+                                        statoConflitto.resolvedContent = ris.resolvedContent;
                                         statoConflitto.sorgenteApplicata = ris.sorgente ?? 'diff3-auto';
                                     }
                                 }
@@ -976,7 +986,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                         overlay.classList.add('visibile');
                     }
                 } else {
-                    vscode.postMessage({ command: 'completaMerge' });
+                    vscode.postMessage({ command: 'completaMerge', resolvedContent: monacoEditorInstance ? monacoEditorInstance.getValue() : null });
                 }
             }
 
@@ -994,7 +1004,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
             // US-011: "Conferma" chiude il modal e invia completaMerge
             document.getElementById('modalConfermaButton').addEventListener('click', function() {
                 chiudiModalConferma();
-                vscode.postMessage({ command: 'completaMerge' });
+                vscode.postMessage({ command: 'completaMerge', resolvedContent: monacoEditorInstance ? monacoEditorInstance.getValue() : null });
             });
 
             // US-011: "Annulla" chiude il modal senza effetti collaterali

@@ -6,7 +6,7 @@ import { ConflictBlock } from '../git/ConflictParser';
 export interface RisultatoRisoluzioneConflitto {
     indiceConflitto: number;
     risolvibileAutomaticamente: boolean;
-    contenutoRisolto: string | null;
+    resolvedContent: string | null;
     motivoNonRisolto: 'base-assente' | 'sovrapposizione-modifiche' | null;
 }
 
@@ -74,7 +74,7 @@ export class Diff3Resolver {
             return {
                 indiceConflitto: conflitto.index,
                 risolvibileAutomaticamente: false,
-                contenutoRisolto: null,
+                resolvedContent: null,
                 motivoNonRisolto: 'base-assente',
             };
         }
@@ -92,7 +92,7 @@ export class Diff3Resolver {
             return {
                 indiceConflitto: conflitto.index,
                 risolvibileAutomaticamente: false,
-                contenutoRisolto: null,
+                resolvedContent: null,
                 motivoNonRisolto: 'sovrapposizione-modifiche',
             };
         }
@@ -103,7 +103,7 @@ export class Diff3Resolver {
         return {
             indiceConflitto: conflitto.index,
             risolvibileAutomaticamente: true,
-            contenutoRisolto: risultatoMerge,
+            resolvedContent: risultatoMerge,
             motivoNonRisolto: null,
         };
     }

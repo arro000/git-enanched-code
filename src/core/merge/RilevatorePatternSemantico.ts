@@ -5,7 +5,7 @@ import type * as Parser from 'web-tree-sitter';
  */
 export interface PatternSemanticoRilevato {
     patternRilevato: string;
-    contenutoRisolto: string;
+    resolvedContent: string;
     scoreConfidenza: number;
 }
 
@@ -126,13 +126,13 @@ export class RilevatorePatternSemantico {
                 : testiNonImportBase;
 
         const righeImport = Array.from(tuttiImport);
-        const contenutoRisolto = parteNonImport
+        const resolvedContent = parteNonImport
             ? righeImport.join('\n') + '\n' + parteNonImport
             : righeImport.join('\n');
 
         return {
             patternRilevato: 'import-indipendenti',
-            contenutoRisolto,
+            resolvedContent,
             scoreConfidenza: 0.95,
         };
     }
@@ -213,12 +213,12 @@ export class RilevatorePatternSemantico {
         const righeHead = codiceHead.split('\n');
         const blocchiNuoviMerging = funzioniNuoveMerging.map(n => n.text);
 
-        const contenutoRisolto = righeHead.join('\n') +
+        const resolvedContent = righeHead.join('\n') +
             (blocchiNuoviMerging.length > 0 ? '\n\n' + blocchiNuoviMerging.join('\n\n') : '');
 
         return {
             patternRilevato: 'metodi-aggiunti',
-            contenutoRisolto,
+            resolvedContent,
             scoreConfidenza: 0.85,
         };
     }
@@ -271,12 +271,12 @@ export class RilevatorePatternSemantico {
         const righeHead = codiceHead.split('\n');
         const blocchiNuoviMerging = proprietaNuoveMerging.map(n => n.text);
 
-        const contenutoRisolto = righeHead.join('\n') +
+        const resolvedContent = righeHead.join('\n') +
             (blocchiNuoviMerging.length > 0 ? '\n' + blocchiNuoviMerging.join('\n') : '');
 
         return {
             patternRilevato: 'proprieta-indipendenti',
-            contenutoRisolto,
+            resolvedContent,
             scoreConfidenza: 0.80,
         };
     }

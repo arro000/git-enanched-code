@@ -601,7 +601,7 @@ export class OnboardingWizardProvider {
       </div>
 
       <div class="sidebar-footer">
-        <button class="skip-link" onclick="skipWizard()">Skip setup &mdash; I'll explore on my own</button>
+        <button class="skip-link" id="btn-skip">Skip setup &mdash; I'll explore on my own</button>
       </div>
     </div>
 
@@ -664,7 +664,7 @@ export class OnboardingWizardProvider {
         <div class="content-footer">
           <span class="nav-step-count">1 / 3</span>
           <div class="nav-spacer"></div>
-          <button class="vsc-btn vsc-btn-primary" onclick="showStep(2)">
+          <button class="vsc-btn vsc-btn-primary" id="btn-next-1">
             Next: Configure &rarr;
           </button>
         </div>
@@ -681,7 +681,7 @@ export class OnboardingWizardProvider {
         </p>
 
         <div class="config-options">
-          <div class="config-opt selected" data-modalita="auto" onclick="selectOption(this)">
+          <div class="config-opt selected" data-modalita="auto">
             <div class="config-radio">
               <div class="config-radio-dot"></div>
             </div>
@@ -697,7 +697,7 @@ export class OnboardingWizardProvider {
             </div>
           </div>
 
-          <div class="config-opt" data-modalita="manual" onclick="selectOption(this)">
+          <div class="config-opt" data-modalita="manual">
             <div class="config-radio">
               <div class="config-radio-dot"></div>
             </div>
@@ -712,10 +712,10 @@ export class OnboardingWizardProvider {
         </div>
 
         <div class="content-footer">
-          <button class="vsc-btn vsc-btn-secondary" onclick="showStep(1)">&larr; Back</button>
+          <button class="vsc-btn vsc-btn-secondary" id="btn-back-2">&larr; Back</button>
           <span class="nav-step-count" style="margin-left: 8px;">2 / 3</span>
           <div class="nav-spacer"></div>
-          <button class="vsc-btn vsc-btn-primary" onclick="showStep(3)">
+          <button class="vsc-btn vsc-btn-primary" id="btn-next-2">
             Next: Shortcuts &rarr;
           </button>
         </div>
@@ -790,10 +790,10 @@ export class OnboardingWizardProvider {
         </table>
 
         <div class="content-footer">
-          <button class="vsc-btn vsc-btn-secondary" onclick="showStep(2)">&larr; Back</button>
+          <button class="vsc-btn vsc-btn-secondary" id="btn-back-3">&larr; Back</button>
           <span class="nav-step-count" style="margin-left: 8px;">3 / 3</span>
           <div class="nav-spacer"></div>
-          <button class="vsc-btn vsc-btn-primary" onclick="completaWizard()">&#10003; Start merging</button>
+          <button class="vsc-btn vsc-btn-primary" id="btn-finish">&#10003; Start merging</button>
         </div>
       </div>
 
@@ -839,6 +839,19 @@ export class OnboardingWizardProvider {
     function skipWizard() {
       vscode.postMessage({ type: 'wizardSkippato' });
     }
+
+    // Navigation buttons
+    document.getElementById('btn-skip').addEventListener('click', skipWizard);
+    document.getElementById('btn-next-1').addEventListener('click', function() { showStep(2); });
+    document.getElementById('btn-back-2').addEventListener('click', function() { showStep(1); });
+    document.getElementById('btn-next-2').addEventListener('click', function() { showStep(3); });
+    document.getElementById('btn-back-3').addEventListener('click', function() { showStep(2); });
+    document.getElementById('btn-finish').addEventListener('click', completaWizard);
+
+    // Config option selection
+    document.querySelectorAll('.config-opt').forEach(function(el) {
+      el.addEventListener('click', function() { selectOption(el); });
+    });
 
     // Listener per messaggi dall'extension host (es. reset alla schermata iniziale)
     window.addEventListener('message', function(event) {

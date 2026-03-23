@@ -101,8 +101,8 @@ suite('US-003 — Merge Completion E2E', () => {
 
     test('AC1: completaMerge su file risolto (senza conflict markers) salva e esegue git add', async () => {
         // Resolve the conflict manually by removing markers and writing clean content
-        const contenutoRisolto = 'function greet() {\n  return "hello merged";\n}\n';
-        fs.writeFileSync(conflictFilePath, contenutoRisolto);
+        const resolvedContent = 'function greet() {\n  return "hello merged";\n}\n';
+        fs.writeFileSync(conflictFilePath, resolvedContent);
 
         // Verify the file is in "unmerged" state (UU) before completion
         const statusPrima = getGitStatusForFile(repoPath, conflictFilePath);
@@ -142,7 +142,7 @@ suite('US-003 — Merge Completion E2E', () => {
         const contenutoSuDisco = fs.readFileSync(conflictFilePath, 'utf-8');
         assert.strictEqual(
             contenutoSuDisco,
-            contenutoRisolto,
+            resolvedContent,
             'Il contenuto del file risolto deve essere preservato su disco dopo il completamento'
         );
 

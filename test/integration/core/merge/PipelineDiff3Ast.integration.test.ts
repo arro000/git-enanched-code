@@ -94,7 +94,7 @@ describe('Pipeline Diff3 + AST Integration', () => {
             expect(risultato.conflittiRisoltiTotale).toBe(1);
 
             // Verifica che il contenuto risolto contiene entrambe le modifiche
-            const contenuto = risultato.risultatoDiff3.conflittiRisolti[0].contenutoRisolto!;
+            const contenuto = risultato.risultatoDiff3.conflittiRisolti[0].resolvedContent!;
             expect(contenuto).toContain('riga1_mod');
             expect(contenuto).toContain('riga3_mod');
         });

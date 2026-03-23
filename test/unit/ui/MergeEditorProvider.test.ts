@@ -1469,7 +1469,7 @@ describe('MergeEditorProvider — US-011: Popup conferma merge con conflitti irr
                 html.indexOf('function gestisciCompletaMerge'),
                 html.indexOf('function chiudiModalConferma')
             );
-            expect(funzioneGestisci).toContain("vscode.postMessage({ command: 'completaMerge' })");
+            expect(funzioneGestisci).toContain("vscode.postMessage({ command: 'completaMerge', resolvedContent:");
         });
 
         it('chiudiModalConferma rimuove la classe visibile dall overlay', async () => {

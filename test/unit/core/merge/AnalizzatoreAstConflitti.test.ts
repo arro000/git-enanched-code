@@ -46,8 +46,8 @@ describe('AnalizzatoreAstConflitti', () => {
             expect(risultato.conflittiAnalizzati).toHaveLength(1);
             const risoluzione = risultato.conflittiAnalizzati[0];
             expect(risoluzione.risolvibileAutomaticamente).toBe(true);
-            expect(risoluzione.contenutoRisolto).toContain("from './b'");
-            expect(risoluzione.contenutoRisolto).toContain("from './c'");
+            expect(risoluzione.resolvedContent).toContain("from './b'");
+            expect(risoluzione.resolvedContent).toContain("from './c'");
             expect(risoluzione.scoreConfidenza).toBeGreaterThan(0);
             expect(risoluzione.patternRilevato).toBe('import-indipendenti');
         });
@@ -100,8 +100,8 @@ describe('AnalizzatoreAstConflitti', () => {
 
             if (risultato.conflittiAnalizzati[0].risolvibileAutomaticamente) {
                 expect(risultato.conflittiAnalizzati[0].patternRilevato).toBe('metodi-aggiunti');
-                expect(risultato.conflittiAnalizzati[0].contenutoRisolto).toContain('nuovaHead');
-                expect(risultato.conflittiAnalizzati[0].contenutoRisolto).toContain('nuovaMerging');
+                expect(risultato.conflittiAnalizzati[0].resolvedContent).toContain('nuovaHead');
+                expect(risultato.conflittiAnalizzati[0].resolvedContent).toContain('nuovaMerging');
             }
         });
 
