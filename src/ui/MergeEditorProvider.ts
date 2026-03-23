@@ -5,6 +5,7 @@ import { MergeSessionStateManager } from '../core/merge/MergeSessionStateManager
 import { countConflicts } from '../core/git/ConflictDetector';
 import { parseConflicts } from '../core/git/ConflictParser';
 import { Diff3Resolver, RisultatoAnalisiDiff3 } from '../core/merge/Diff3Resolver';
+import { AnalizzatoreAstConflitti } from '../core/merge/AnalizzatoreAstConflitti';
 
 export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
     public static readonly VIEW_TYPE = 'git-enhanced.mergeEditor';
@@ -26,6 +27,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
     private readonly mergeCompletionService = new MergeCompletionService();
     private readonly fallbackService = new FallbackService();
     private readonly diff3Resolver = new Diff3Resolver();
+    private readonly analizzatoreAst = new AnalizzatoreAstConflitti();
     private readonly stateManager: MergeSessionStateManager;
 
     constructor(private readonly context: vscode.ExtensionContext) {
@@ -84,6 +86,7 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                     numeroConflitti
                 );
 
+                // US-012: Layer 1 — diff3 auto-resolve
                 risultatoDiff3 = this.diff3Resolver.risolviConflitti(conflittiParsati);
                 for (const risoluzione of risultatoDiff3.conflittiRisolti) {
                     if (risoluzione.risolvibileAutomaticamente && risoluzione.contenutoRisolto !== null) {
@@ -93,6 +96,34 @@ export class MergeEditorProvider implements vscode.CustomTextEditorProvider {
                             statoConflitto.contenutoRisolto = risoluzione.contenutoRisolto;
                             statoConflitto.sorgenteApplicata = 'diff3-auto';
                         }
+                    }
+                }
+
+                // US-013: Layer 2 — AST analysis per conflitti residui
+                const conflittiNonRisolti = conflittiParsati.filter((_, indice) => {
+                    const ris = risultatoDiff3!.conflittiRisolti[indice];
+                    return ris && !ris.risolvibileAutomaticamente &&
+                           ris.motivoNonRisolto === 'sovrapposizione-modifiche';
+                });
+
+                if (conflittiNonRisolti.length > 0) {
+                    try {
+                        const risultatoAst = await this.analizzatoreAst.analizzaConflitti(
+                            conflittiNonRisolti,
+                            linguaggioId
+                        );
+                        for (const risoluzione of risultatoAst.conflittiAnalizzati) {
+                            if (risoluzione.risolvibileAutomaticamente && risoluzione.contenutoRisolto !== null) {
+                                const statoConflitto = statoIniziale.statiConflitti[risoluzione.indiceConflitto];
+                                if (statoConflitto) {
+                                    statoConflitto.risolto = true;
+                                    statoConflitto.contenutoRisolto = risoluzione.contenutoRisolto;
+                                    statoConflitto.sorgenteApplicata = 'ast-auto';
+                                }
+                            }
+                        }
+                    } catch {
+                        // AST analysis failure is non-fatal — conflicts stay unresolved
                     }
                 }
 

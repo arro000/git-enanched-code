@@ -113,6 +113,9 @@
   },
   "dependencies": {
     "monaco-editor": "^0.55.1",
-    "simple-git": "^3.22.0"
+    "simple-git": "^3.22.0",
+    "tree-sitter-javascript": "^0.25.0",
+    "tree-sitter-typescript": "^0.23.2",
+    "web-tree-sitter": "^0.24.7"
   }
 }

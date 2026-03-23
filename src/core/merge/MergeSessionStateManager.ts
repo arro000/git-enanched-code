@@ -11,7 +11,7 @@ export interface StatoRisoluzioneConflitto {
     /** The resolved content for this conflict (null if not yet resolved) */
     contenutoRisolto: string | null;
     /** Which source was applied: 'head', 'merging', 'both', 'manual', or null if unresolved */
-    sorgenteApplicata: 'head' | 'merging' | 'both' | 'manual' | 'diff3-auto' | null;
+    sorgenteApplicata: 'head' | 'merging' | 'both' | 'manual' | 'diff3-auto' | 'ast-auto' | null;
 }
 
 /**

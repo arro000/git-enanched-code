@@ -309,6 +309,7 @@ in modo da trovare la colonna centrale già parzialmente popolata con le risoluz
 #### US-013: Analisi AST con Tree-sitter per conflitti residui (Layer 2)
 
 **Epic:** EP-003 | **Priority:** HIGH | **Story Points:** 5
+**Status:** REVIEW
 
 **Story**
 Come Marco (Senior Developer),
